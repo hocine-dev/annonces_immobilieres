@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?ERREUR CRITIQUE. Le fichier .env est introuvable ou incomplet.}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?ERREUR CRITIQUE. Le fichier .env est introuvable ou incomplet.}
+      POSTGRES_DB: ${POSTGRES_DB:?ERREUR CRITIQUE. Le fichier .env est introuvable ou incomplet.}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      # montage du dossier pgdata sur la machine hôte pour la persistance des données
+      - pgdata:/var/lib/postgresql/data 
+
+volumes:
+  pgdata:
