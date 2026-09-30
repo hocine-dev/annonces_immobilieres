@@ -113,6 +113,14 @@ enum EtatBien {
   VENDU
 }
 
+enum TypePropriete {
+  APPARTEMENT
+  MAISON
+  VILLA
+  STUDIO
+  LOFT
+}
+
 // ==========================================
 // 3. ANNONCES IMMOBILIÈRES
 // ==========================================
@@ -122,10 +130,14 @@ model Annonce {
   titre             String
   description       String            @db.Text
   type              TypeBien
+  typePropriete     TypePropriete
   statut            StatutPublication @default(BROUILLON)
   etat              EtatBien          @default(DISPONIBLE)
   prix              Decimal           @db.Decimal(12, 2)
   dateDisponibilite DateTime          @default(now())
+  ville             String
+  surface           Int
+  chambres          Int
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -141,7 +153,6 @@ model Annonce {
 
   // Index pour les requêtes publiques
   @@index([statut, createdAt])
-
   @@map("annonce")
 }
 
