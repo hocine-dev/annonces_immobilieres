@@ -1,0 +1,391 @@
+"use client"
+
+import { useActionState } from "react"
+import {
+  Building2,
+  CalendarDays,
+  Euro,
+  FileText,
+  Home,
+  MapPin,
+  Ruler,
+  BedDouble,
+} from "lucide-react"
+
+import {
+  createAnnonce,
+  type CreateAnnonceState,
+} from "@/actions/annonce"
+
+const initialState: CreateAnnonceState = {
+  success: false,
+}
+
+const inputClass =
+  "h-12 w-full rounded-xl border border-input bg-background px-4 text-sm text-foreground outline-none transition-all placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
+
+const inputWithIconClass =
+  "h-12 w-full rounded-xl border border-input bg-background pl-11 pr-4 text-sm text-foreground outline-none transition-all placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
+
+const labelClass =
+  "mb-2 block text-sm font-semibold text-foreground"
+
+export function CreateAnnonceForm() {
+  const [state, formAction, pending] = useActionState(
+    createAnnonce,
+    initialState,
+  )
+
+  return (
+    <form action={formAction} className="space-y-8">
+      {state.message && (
+        <div
+          role="alert"
+          className="rounded-xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive"
+        >
+          {state.message}
+        </div>
+      )}
+
+      {/* INFORMATIONS PRINCIPALES */}
+      <section>
+        <div className="mb-5 flex items-center gap-3">
+          <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <Building2 className="size-5" />
+          </span>
+
+          <div>
+            <h2 className="font-display text-xl font-bold text-foreground">
+              Informations principales
+            </h2>
+
+            <p className="text-sm text-muted-foreground">
+              Présentez le bien de manière claire et précise.
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-5">
+          {/* TITRE */}
+          <div>
+            <label htmlFor="titre" className={labelClass}>
+              Titre de l&apos;annonce
+            </label>
+
+            <div className="relative">
+              <Home className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+
+              <input
+                id="titre"
+                name="titre"
+                type="text"
+                defaultValue={state.values?.titre ?? ""}
+                placeholder="Appartement avec vue sur mer"
+                aria-invalid={Boolean(state.errors?.titre)}
+                aria-describedby={
+                  state.errors?.titre ? "titre-error" : undefined
+                }
+                className={inputWithIconClass}
+              />
+            </div>
+
+            {state.errors?.titre?.[0] && (
+              <p
+                id="titre-error"
+                className="mt-2 text-sm font-medium text-destructive"
+              >
+                {state.errors.titre[0]}
+              </p>
+            )}
+          </div>
+
+          {/* DESCRIPTION */}
+          <div>
+            <label htmlFor="description" className={labelClass}>
+              Description
+            </label>
+
+            <div className="relative">
+              <FileText className="pointer-events-none absolute left-4 top-4 size-4 text-muted-foreground" />
+
+              <textarea
+                id="description"
+                name="description"
+                rows={6}
+                defaultValue={state.values?.description ?? ""}
+                placeholder="Décrivez le bien, son environnement et ses principaux atouts..."
+                aria-invalid={Boolean(state.errors?.description)}
+                aria-describedby={
+                  state.errors?.description
+                    ? "description-error"
+                    : undefined
+                }
+                className="w-full resize-y rounded-xl border border-input bg-background py-3 pl-11 pr-4 text-sm text-foreground outline-none transition-all placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
+              />
+            </div>
+
+            {state.errors?.description?.[0] && (
+              <p
+                id="description-error"
+                className="mt-2 text-sm font-medium text-destructive"
+              >
+                {state.errors.description[0]}
+              </p>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <div className="border-t border-border" />
+
+      {/* TYPE DE BIEN */}
+      <section>
+        <div className="mb-5">
+          <span className="text-xs font-bold uppercase tracking-widest text-gold-foreground">
+            Classification
+          </span>
+
+          <h2 className="mt-1 font-display text-xl font-bold text-foreground">
+            Type de bien
+          </h2>
+        </div>
+
+        <div className="grid gap-5 sm:grid-cols-2">
+          {/* TRANSACTION */}
+          <div>
+            <label htmlFor="type" className={labelClass}>
+              Type de transaction
+            </label>
+
+            <select
+              id="type"
+              name="type"
+              defaultValue={state.values?.type ?? ""}
+              aria-invalid={Boolean(state.errors?.type)}
+              className={inputClass}
+            >
+              <option value="">Sélectionner</option>
+              <option value="VENTE">Vente</option>
+              <option value="LOCATION">Location</option>
+            </select>
+
+            {state.errors?.type?.[0] && (
+              <p className="mt-2 text-sm font-medium text-destructive">
+                {state.errors.type[0]}
+              </p>
+            )}
+          </div>
+
+          {/* PROPRIÉTÉ */}
+          <div>
+            <label htmlFor="typePropriete" className={labelClass}>
+              Type de propriété
+            </label>
+
+            <select
+              id="typePropriete"
+              name="typePropriete"
+              defaultValue={state.values?.typePropriete ?? ""}
+              aria-invalid={Boolean(state.errors?.typePropriete)}
+              className={inputClass}
+            >
+              <option value="">Sélectionner</option>
+              <option value="APPARTEMENT">Appartement</option>
+              <option value="MAISON">Maison</option>
+              <option value="VILLA">Villa</option>
+              <option value="STUDIO">Studio</option>
+              <option value="LOFT">Loft</option>
+            </select>
+
+            {state.errors?.typePropriete?.[0] && (
+              <p className="mt-2 text-sm font-medium text-destructive">
+                {state.errors.typePropriete[0]}
+              </p>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <div className="border-t border-border" />
+
+      {/* LOCALISATION ET CARACTÉRISTIQUES */}
+      <section>
+        <div className="mb-5">
+          <span className="text-xs font-bold uppercase tracking-widest text-gold-foreground">
+            Caractéristiques
+          </span>
+
+          <h2 className="mt-1 font-display text-xl font-bold text-foreground">
+            Détails du bien
+          </h2>
+        </div>
+
+        <div className="grid gap-5 sm:grid-cols-2">
+          {/* VILLE */}
+          <div>
+            <label htmlFor="ville" className={labelClass}>
+              Ville
+            </label>
+
+            <div className="relative">
+              <MapPin className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+
+              <input
+                id="ville"
+                name="ville"
+                type="text"
+                defaultValue={state.values?.ville ?? ""}
+                placeholder="Le Havre"
+                aria-invalid={Boolean(state.errors?.ville)}
+                className={inputWithIconClass}
+              />
+            </div>
+
+            {state.errors?.ville?.[0] && (
+              <p className="mt-2 text-sm font-medium text-destructive">
+                {state.errors.ville[0]}
+              </p>
+            )}
+          </div>
+
+          {/* PRIX */}
+          <div>
+            <label htmlFor="prix" className={labelClass}>
+              Prix
+            </label>
+
+            <div className="relative">
+              <Euro className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+
+              <input
+                id="prix"
+                name="prix"
+                type="number"
+                min="0"
+                step="0.01"
+                defaultValue={state.values?.prix ?? ""}
+                placeholder="250000"
+                aria-invalid={Boolean(state.errors?.prix)}
+                className={inputWithIconClass}
+              />
+            </div>
+
+            {state.errors?.prix?.[0] && (
+              <p className="mt-2 text-sm font-medium text-destructive">
+                {state.errors.prix[0]}
+              </p>
+            )}
+          </div>
+
+          {/* SURFACE */}
+          <div>
+            <label htmlFor="surface" className={labelClass}>
+              Surface
+            </label>
+
+            <div className="relative">
+              <Ruler className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+
+              <input
+                id="surface"
+                name="surface"
+                type="number"
+                min="1"
+                defaultValue={state.values?.surface ?? ""}
+                placeholder="75"
+                aria-invalid={Boolean(state.errors?.surface)}
+                className={inputWithIconClass}
+              />
+            </div>
+
+            <p className="mt-1 text-xs text-muted-foreground">
+              Surface en m²
+            </p>
+
+            {state.errors?.surface?.[0] && (
+              <p className="mt-2 text-sm font-medium text-destructive">
+                {state.errors.surface[0]}
+              </p>
+            )}
+          </div>
+
+          {/* CHAMBRES */}
+          <div>
+            <label htmlFor="chambres" className={labelClass}>
+              Nombre de chambres
+            </label>
+
+            <div className="relative">
+              <BedDouble className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+
+              <input
+                id="chambres"
+                name="chambres"
+                type="number"
+                min="0"
+                defaultValue={state.values?.chambres ?? ""}
+                placeholder="3"
+                aria-invalid={Boolean(state.errors?.chambres)}
+                className={inputWithIconClass}
+              />
+            </div>
+
+            {state.errors?.chambres?.[0] && (
+              <p className="mt-2 text-sm font-medium text-destructive">
+                {state.errors.chambres[0]}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* DATE */}
+        <div className="mt-5">
+          <label htmlFor="dateDisponibilite" className={labelClass}>
+            Date de disponibilité
+          </label>
+
+          <div className="relative sm:max-w-sm">
+            <CalendarDays className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+
+            <input
+              id="dateDisponibilite"
+              name="dateDisponibilite"
+              type="date"
+              defaultValue={state.values?.dateDisponibilite ?? ""}
+              aria-invalid={Boolean(
+                state.errors?.dateDisponibilite,
+              )}
+              className={inputWithIconClass}
+            />
+          </div>
+
+          {state.errors?.dateDisponibilite?.[0] && (
+            <p className="mt-2 text-sm font-medium text-destructive">
+              {state.errors.dateDisponibilite[0]}
+            </p>
+          )}
+        </div>
+      </section>
+
+      {/* ACTION */}
+      <div className="flex flex-col gap-3 border-t border-border pt-6 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-muted-foreground">
+          L&apos;annonce sera créée en{" "}
+          <strong className="text-foreground">brouillon</strong>.
+        </p>
+
+        <button
+          type="submit"
+          disabled={pending}
+          className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-primary px-6 text-sm font-bold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <Building2 className="size-4" />
+
+          {pending
+            ? "Création en cours..."
+            : "Créer l'annonce"}
+        </button>
+      </div>
+    </form>
+  )
+}
