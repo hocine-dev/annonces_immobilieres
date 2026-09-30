@@ -6,6 +6,7 @@ export default defineConfig({
 
   migrations: {
     path: "prisma/migrations",
+    seed: "npx tsx ./prisma/seed.ts", // C'est ici que Prisma 7 va chercher la commande
   },
 
   datasource: {
