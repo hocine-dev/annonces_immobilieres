@@ -1,11 +1,16 @@
 "use server"
 
+import { randomUUID } from "node:crypto"
+import { mkdir, unlink, writeFile } from "node:fs/promises"
+import path from "node:path"
+
 import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
 
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { createAnnonceSchema } from "@/lib/validators/annonce"
+import { photosSchema } from "@/lib/validators/photo"
 
 export type CreateAnnonceState = {
   success: boolean
@@ -67,35 +72,157 @@ export async function createAnnonce(
     chambres: String(formData.get("chambres") ?? ""),
   }
 
+  const photoFiles = formData
+    .getAll("photos")
+    .filter(
+      (value): value is File =>
+        value instanceof File && value.size > 0,
+    )
+
   // 3. VALIDATION ZOD
   const result = createAnnonceSchema.safeParse(values)
 
-  if (!result.success) {
+  const photosResult = photosSchema.safeParse(
+    photoFiles.map((file) => ({
+      name: file.name,
+      type: file.type,
+      size: file.size,
+    })),
+  )
+
+  if (!result.success || !photosResult.success) {
     return {
       success: false,
-      errors: result.error.flatten().fieldErrors,
+      errors: {
+        ...(result.success
+          ? {}
+          : result.error.flatten().fieldErrors),
+
+        ...(photosResult.success
+          ? {}
+          : {
+              photos: photosResult.error.issues.map(
+                (issue) => issue.message,
+              ),
+            }),
+      },
       values,
     }
   }
 
-  // 4. INSERTION PRISMA
-  const annonce = await prisma.annonce.create({
-    data: {
-      titre: result.data.titre,
-      description: result.data.description,
-      type: result.data.type,
-      typePropriete: result.data.typePropriete,
-      prix: result.data.prix,
-      dateDisponibilite: result.data.dateDisponibilite,
-      ville: result.data.ville,
-      surface: result.data.surface,
-      chambres: result.data.chambres,
+  // 4. SAUVEGARDE DES PHOTOS
+  const uploadDirectory = path.join(
+    process.cwd(),
+    "public",
+    "uploads",
+    "annonces",
+  )
 
-      auteurId: session.user.id,
-    },
+  await mkdir(uploadDirectory, {
+    recursive: true,
   })
 
+  const extensionByMimeType: Record<string, string> = {
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+  }
+
+  const writtenFiles: string[] = []
+  const photoUrls: string[] = []
+
+  try {
+    for (const photo of photoFiles) {
+      const extension = extensionByMimeType[photo.type]
+
+      if (!extension) {
+        throw new Error("Type d'image non autorisé")
+      }
+
+      const filename = `${randomUUID()}.${extension}`
+
+      const absolutePath = path.join(
+        uploadDirectory,
+        filename,
+      )
+
+      const buffer = Buffer.from(
+        await photo.arrayBuffer(),
+      )
+
+      await writeFile(
+        absolutePath,
+        buffer,
+      )
+
+      writtenFiles.push(absolutePath)
+
+      photoUrls.push(
+        `/uploads/annonces/${filename}`,
+      )
+    }
+  } catch {
+    await Promise.allSettled(
+      writtenFiles.map((filename) =>
+        unlink(filename),
+      ),
+    )
+
+    return {
+      success: false,
+      message:
+        "Une erreur est survenue pendant l'enregistrement des photos.",
+      values,
+    }
+  }
+
+  // 5. INSERTION PRISMA
+  let annonce
+
+  try {
+    annonce = await prisma.annonce.create({
+      data: {
+        titre: result.data.titre,
+        description: result.data.description,
+        type: result.data.type,
+        typePropriete: result.data.typePropriete,
+        prix: result.data.prix,
+        dateDisponibilite: result.data.dateDisponibilite,
+        ville: result.data.ville,
+        surface: result.data.surface,
+        chambres: result.data.chambres,
+
+        auteurId: session.user.id,
+
+        photos:
+          photoUrls.length > 0
+            ? {
+                create: photoUrls.map((url) => ({
+                  url,
+                })),
+              }
+            : undefined,
+      },
+    })
+  } catch {
+    await Promise.allSettled(
+      writtenFiles.map((filename) =>
+        unlink(filename),
+      ),
+    )
+
+    return {
+      success: false,
+      message:
+        "Une erreur est survenue pendant la création de l'annonce.",
+      values,
+    }
+  }
+
+  revalidatePath("/")
   revalidatePath("/annonces")
+  revalidatePath("/agent")
+  revalidatePath("/agent/dashboard")
 
   return {
     success: true,

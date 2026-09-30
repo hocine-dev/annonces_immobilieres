@@ -1,9 +1,11 @@
 "use client"
 
-import { useActionState } from "react"
+import { useActionState, useEffect, useRef } from "react"
+import Link from "next/link"
 import {
   Building2,
   CalendarDays,
+  CheckCircle2,
   Euro,
   FileText,
   Home,
@@ -16,6 +18,8 @@ import {
   createAnnonce,
   type CreateAnnonceState,
 } from "@/actions/annonce"
+
+import { PhotoDropzone } from "@/components/annonces/PhotoDropzone"
 
 const initialState: CreateAnnonceState = {
   success: false,
@@ -36,6 +40,25 @@ export function CreateAnnonceForm() {
     initialState,
   )
 
+  const feedbackRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!state.success || !state.annonceId) {
+      return
+    }
+
+    requestAnimationFrame(() => {
+      feedbackRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      })
+
+      feedbackRef.current?.focus({
+        preventScroll: true,
+      })
+    })
+  }, [state.success, state.annonceId])
+
   return (
     <form action={formAction} className="space-y-8">
       {state.message && (
@@ -44,6 +67,38 @@ export function CreateAnnonceForm() {
           className="rounded-xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive"
         >
           {state.message}
+        </div>
+      )}
+
+      {state.success && state.annonceId && (
+        <div
+          ref={feedbackRef}
+          role="status"
+          tabIndex={-1}
+          className="scroll-mt-28 flex flex-col gap-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-emerald-900 outline-none sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+              <CheckCircle2 className="size-5" />
+            </span>
+
+            <div>
+              <p className="font-bold">
+                Annonce créée avec succès
+              </p>
+
+              <p className="mt-1 text-sm text-emerald-800">
+                Votre annonce a bien été enregistrée en brouillon.
+              </p>
+            </div>
+          </div>
+
+          <Link
+            href={`/annonces/${state.annonceId}`}
+            className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl bg-emerald-700 px-4 text-sm font-bold text-white transition hover:bg-emerald-800"
+          >
+            Voir l&apos;annonce
+          </Link>
         </div>
       )}
 
@@ -367,6 +422,28 @@ export function CreateAnnonceForm() {
         </div>
       </section>
 
+      <div className="border-t border-border" />
+
+      {/* PHOTOS */}
+      <section>
+        <div className="mb-5">
+          <span className="text-xs font-bold uppercase tracking-widest text-gold-foreground">
+            Galerie
+          </span>
+
+          <h2 className="mt-1 font-display text-xl font-bold text-foreground">
+            Photos du bien
+          </h2>
+
+          <p className="mt-2 text-sm text-muted-foreground">
+            Glissez-déposez vos photos ou cliquez pour les sélectionner.
+            La première photo sera utilisée comme image principale.
+          </p>
+        </div>
+
+        <PhotoDropzone />
+      </section>
+
       {/* ACTION */}
       <div className="flex flex-col gap-3 border-t border-border pt-6 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-muted-foreground">
@@ -376,14 +453,16 @@ export function CreateAnnonceForm() {
 
         <button
           type="submit"
-          disabled={pending}
+          disabled={pending || state.success}
           className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-primary px-6 text-sm font-bold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
         >
           <Building2 className="size-4" />
 
-          {pending
-            ? "Création en cours..."
-            : "Créer l'annonce"}
+          {state.success
+            ? "Annonce créée"
+            : pending
+              ? "Création en cours..."
+              : "Créer l'annonce"}
         </button>
       </div>
     </form>
