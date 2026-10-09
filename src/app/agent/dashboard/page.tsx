@@ -325,7 +325,15 @@ export default async function AgentDashboardPage() {
                             ? "Publié"
                             : "Brouillon"}
                         </span>
+                        <Link 
+                          href={`/agent/details/${annonce.id}`}
+                          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors cursor-pointer"
+                        >
+                          <Eye className="w-4 h-4" />
+                          <span className="text-xs">Voir</span>
+                        </Link>
                       </div>
+                      
                     </div>
                   ))}
                 </div>
