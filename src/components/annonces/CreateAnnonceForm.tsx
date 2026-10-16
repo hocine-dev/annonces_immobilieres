@@ -20,9 +20,15 @@ import {
 } from "@/actions/annonce"
 
 import { PhotoDropzone } from "@/components/annonces/PhotoDropzone"
+import { adminUpdateAnnonce } from "@/actions/admin-update-annonce"
 
-const initialState: CreateAnnonceState = {
-  success: false,
+type AnnonceFormValues = NonNullable<CreateAnnonceState["values"]>
+
+type Props = {
+  mode?: "create" | "edit"
+  annonceId?: string
+  initialValues?: AnnonceFormValues
+  existingPhotos?: { id: string; url: string }[]
 }
 
 const inputClass =
@@ -34,10 +40,21 @@ const inputWithIconClass =
 const labelClass =
   "mb-2 block text-sm font-semibold text-foreground"
 
-export function CreateAnnonceForm() {
+export function CreateAnnonceForm({
+  mode = "create",
+  annonceId,
+  initialValues,
+  existingPhotos = [],
+}: Props) {
+  const isEdit = mode === "edit"
+
+  const action = isEdit
+    ? adminUpdateAnnonce.bind(null, annonceId ?? "")
+    : createAnnonce
+
   const [state, formAction, pending] = useActionState(
-    createAnnonce,
-    initialState,
+    action,
+    { success: false, values: initialValues } as CreateAnnonceState,
   )
 
   const feedbackRef = useRef<HTMLDivElement>(null)
@@ -57,11 +74,11 @@ export function CreateAnnonceForm() {
         preventScroll: true,
       })
     })
-  }, [state.success, state.annonceId])
+  }, [state])
 
   return (
     <form action={formAction} className="space-y-8">
-      {state.message && (
+      {state.message && !state.success && (
         <div
           role="alert"
           className="rounded-xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive"
@@ -84,20 +101,20 @@ export function CreateAnnonceForm() {
 
             <div>
               <p className="font-bold">
-                Annonce créée avec succès
+                {isEdit ? "Annonce modifiée avec succès" : "Annonce créée avec succès"}
               </p>
 
               <p className="mt-1 text-sm text-emerald-800">
-                Votre annonce a bien été enregistrée en brouillon.
+                {isEdit ? "Vos modifications ont été enregistrées." : "Votre annonce a bien été enregistrée en brouillon."}
               </p>
             </div>
           </div>
 
           <Link
-            href={`/annonces/${state.annonceId}`}
+            href={isEdit ? "/admin/annonces" : `/annonces/${state.annonceId}`}
             className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl bg-emerald-700 px-4 text-sm font-bold text-white transition hover:bg-emerald-800"
           >
-            Voir l&apos;annonce
+            {isEdit ? "Retour aux annonces" : "Voir l'annonce"}
           </Link>
         </div>
       )}
@@ -435,34 +452,39 @@ export function CreateAnnonceForm() {
             Photos du bien
           </h2>
 
-          <p className="mt-2 text-sm text-muted-foreground">
-            Glissez-déposez vos photos ou cliquez pour les sélectionner.
-            La première photo sera utilisée comme image principale.
-          </p>
         </div>
 
-        <PhotoDropzone />
+        <PhotoDropzone
+          existingPhotos={isEdit ? existingPhotos : []}
+          error={state.errors?.photos?.[0]}
+        />
       </section>
 
       {/* ACTION */}
       <div className="flex flex-col gap-3 border-t border-border pt-6 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-muted-foreground">
-          L&apos;annonce sera créée en{" "}
-          <strong className="text-foreground">brouillon</strong>.
-        </p>
+        {!isEdit && (
+          <p className="text-sm text-muted-foreground">
+            L&apos;annonce sera créée en{" "}
+            <strong className="text-foreground">brouillon</strong>.
+          </p>
+        )}
 
         <button
           type="submit"
-          disabled={pending || state.success}
+          disabled={pending || (!isEdit && state.success)}
           className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-primary px-6 text-sm font-bold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
         >
           <Building2 className="size-4" />
 
-          {state.success
-            ? "Annonce créée"
-            : pending
-              ? "Création en cours..."
-              : "Créer l'annonce"}
+          {pending
+            ? isEdit
+              ? "Enregistrement en cours..."
+              : "Création en cours..."
+            : isEdit
+              ? "Enregistrer les modifications"
+              : state.success
+                ? "Annonce créée"
+                : "Créer l'annonce"}
         </button>
       </div>
     </form>
