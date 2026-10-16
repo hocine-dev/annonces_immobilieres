@@ -253,6 +253,7 @@ export async function repondreQuestion(
    * pouvant afficher cette réponse.
    */
   revalidatePath("/agent/questions")
+  revalidatePath("/admin/questions")
   revalidatePath("/agent/dashboard")
 
   revalidatePath(
