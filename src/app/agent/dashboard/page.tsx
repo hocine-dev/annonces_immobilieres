@@ -17,6 +17,8 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { Navbar } from "@/components/NavBar"
 import { Footer } from "@/components/Footer"
+import { Suspense } from "react"
+import { ToastListener } from "../details/[id]/ToastListener"
 
 export default async function AgentDashboardPage() {
   const session = await auth.api.getSession({
@@ -90,7 +92,9 @@ export default async function AgentDashboardPage() {
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <Navbar />
-
+      <Suspense fallback={null}>
+        <ToastListener />
+      </Suspense>
       <main className="flex-1">
         {/* Hero */}
         <section className="bg-navy text-white">

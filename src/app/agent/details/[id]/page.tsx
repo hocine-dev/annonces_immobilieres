@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { annonceIdSchema } from '@/lib/validators/interaction-annonce'
 import { headers } from 'next/headers'
 import { notFound, redirect } from 'next/navigation'
-import React from 'react'
+import React, { Suspense } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { 
@@ -17,11 +17,12 @@ import {
   Building, 
   Clock, 
   Pencil, 
-  Trash2, 
-  CheckCircle2, 
   ShieldCheck,
   Tag
 } from 'lucide-react'
+import { updateStatutPublication, updateEtatBien, deleteAnnonce } from './actions'
+import { ToastListener } from './ToastListener'
+import { DeleteButton } from './DeleteButton'
 
 type DetailsPageProps = {
   params: Promise<{
@@ -46,6 +47,9 @@ export default async function DetailsPage({
   const session = await auth.api.getSession({
     headers: await headers(),
   })
+  if (!session?.user) {
+    redirect('/login')
+  }
 
   // Récupération complète avec l'auteur et les questions
   const annonce = await prisma.annonce.findUnique({
@@ -74,34 +78,8 @@ export default async function DetailsPage({
 
   // Vérification si l'utilisateur connecté est le publieur / agent
   const isOwner = session?.user?.id === annonce.auteurId
-
-  // --- SERVER ACTIONS (Gestion par le publieur) ---
-  async function updateStatutPublication(formData: FormData) {
-    'use server'
-    const nouveauStatut = formData.get('statut') as 'BROUILLON' | 'PUBLIE'
-    await prisma.annonce.update({
-      where: { id: parsedId.data },
-      data: { statut: nouveauStatut },
-    })
-    redirect(`/agent/details/${parsedId.data}`)
-  }
-
-  async function updateEtatBien(formData: FormData) {
-    'use server'
-    const nouvelEtat = formData.get('etat') as 'DISPONIBLE' | 'LOUE' | 'VENDU'
-    await prisma.annonce.update({
-      where: { id: parsedId.data },
-      data: { etat: nouvelEtat },
-    })
-    redirect(`/agent/details/${parsedId.data}`)
-  }
-
-  async function deleteAnnonce() {
-    'use server'
-    await prisma.annonce.delete({
-      where: { id: parsedId.data },
-    })
-    redirect('/agent/dashboard')
+  if (!isOwner) {
+    notFound()
   }
 
   // Formateurs
@@ -117,8 +95,17 @@ export default async function DetailsPage({
     year: 'numeric',
   })
 
+  // Liaison des IDs aux Server Actions
+  const handleUpdateStatut = updateStatutPublication.bind(null, parsedId.data)
+  const handleUpdateEtat = updateEtatBien.bind(null, parsedId.data)
+  const handleDelete = deleteAnnonce.bind(null, parsedId.data)
+
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
+      <Suspense fallback={null}>
+        <ToastListener />
+      </Suspense>
+
       <Navbar />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
@@ -133,7 +120,7 @@ export default async function DetailsPage({
 
             <div className="flex items-center gap-4 flex-wrap">
               {/* Formulaire Statut Publication (Brouillon / Publié) */}
-              <form action={updateStatutPublication} className="flex items-center gap-2">
+              <form action={handleUpdateStatut} className="flex items-center gap-2">
                 <label htmlFor="statut" className="text-xs font-medium text-muted-foreground">
                   Statut :
                 </label>
@@ -155,7 +142,7 @@ export default async function DetailsPage({
               </form>
 
               {/* Formulaire État du Bien (Disponible / Loué / Vendu) */}
-              <form action={updateEtatBien} className="flex items-center gap-2">
+              <form action={handleUpdateEtat} className="flex items-center gap-2">
                 <label htmlFor="etat" className="text-xs font-medium text-muted-foreground">
                   État :
                 </label>
@@ -316,7 +303,7 @@ export default async function DetailsPage({
                 <div className="space-y-4">
                   {annonce.questions.map((q) => (
                     <div key={q.id} className="p-4 rounded-lg bg-muted space-y-2">
-                      <p className="font-medium text-sm text-foreground">{""}</p>
+                      <p className="font-medium text-sm text-foreground">{''}</p>
                       <p className="text-xs text-muted-foreground flex items-center gap-1">
                         <Clock className="w-3 h-3" />
                         {new Date(q.createdAt).toLocaleDateString('fr-FR')}
@@ -367,15 +354,7 @@ export default async function DetailsPage({
                     Modifier l'annonce
                   </Link>
 
-                  <form action={deleteAnnonce}>
-                    <button
-                      type="submit"
-                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-destructive text-destructive-foreground hover:opacity-90 font-medium rounded-[var(--radius)] transition-opacity cursor-pointer"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      Supprimer l'annonce
-                    </button>
-                  </form>
+                  <DeleteButton action={handleDelete} />
                 </div>
               ) : (
                 <a

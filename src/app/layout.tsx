@@ -1,6 +1,7 @@
 import { Sora, Manrope } from "next/font/google";
 import "./globals.css"; // L'import de ton magnifique fichier CSS
-
+import { ToastContainer } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
 // 1. Configuration de la police pour les titres
 const sora = Sora({
   subsets: ["latin"],
@@ -30,6 +31,7 @@ export default function RootLayout({
     <html lang="fr" className={`${sora.variable} ${manrope.variable} scroll-smooth`}>
       <body className="antialiased bg-background text-foreground">
         {children}
+        <ToastContainer position="top-right" />
       </body>
     </html>
   );
