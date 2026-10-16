@@ -182,8 +182,8 @@ export default async function AnnonceDetailPage({
             <div className="absolute left-5 top-5 flex gap-2">
               <span className="rounded-full bg-gold px-4 py-2 text-xs font-bold uppercase tracking-wide text-navy shadow-sm">
                 {annonce.type === "VENTE"
-                  ? "À vendre"
-                  : "À louer"}
+                  ? annonce.etat === "VENDU" ? "Vente" : "À vendre"
+                  : annonce.etat === "LOUE" ? "Location" : "À louer"}
               </span>
 
               <span className="rounded-full bg-navy/90 px-4 py-2 text-xs font-bold text-white backdrop-blur">
@@ -207,6 +207,16 @@ export default async function AnnonceDetailPage({
                   <h1 className="max-w-3xl font-display text-3xl font-bold leading-tight text-foreground md:text-4xl">
                     {annonce.titre}
                   </h1>
+              {/* Marquage VENDU / LOUÉ */}
+              {(annonce.etat === "VENDU" ||
+                annonce.etat === "LOUE") && (
+                <div className="mt-4">
+                  <span className="inline-flex items-center rounded-xl border-2 border-red-600 bg-red-50 px-6 py-2.5 text-lg font-extrabold uppercase tracking-widest text-red-700">
+                    {annonce.etat === "VENDU" ? "VENDU" : "LOUÉ"}
+                  </span>
+                </div>
+              )}
+
                 </div>
 
                 <p className="whitespace-nowrap font-display text-3xl font-bold text-primary">
@@ -218,7 +228,11 @@ export default async function AnnonceDetailPage({
               </div>
 
               {/* Caractéristiques */}
-              <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className={`mt-8 grid grid-cols-2 gap-3 ${
+                  annonce.etat === "DISPONIBLE"
+                    ? "sm:grid-cols-4"
+                    : "sm:grid-cols-3"
+                }`}>
                 <div className="rounded-2xl bg-secondary/60 p-4">
                   <Ruler className="mb-3 size-5 text-primary" />
 
@@ -257,19 +271,21 @@ export default async function AnnonceDetailPage({
                   </p>
                 </div>
 
-                <div className="rounded-2xl bg-secondary/60 p-4">
-                  <CalendarDays className="mb-3 size-5 text-primary" />
+                {annonce.etat === "DISPONIBLE" && (
+                  <div className="rounded-2xl bg-secondary/60 p-4">
+                    <CalendarDays className="mb-3 size-5 text-primary" />
 
-                  <p className="text-sm font-bold">
-                    {annonce.dateDisponibilite.toLocaleDateString(
-                      "fr-FR",
-                    )}
-                  </p>
+                    <p className="text-sm font-bold">
+                      {annonce.dateDisponibilite.toLocaleDateString(
+                        "fr-FR",
+                      )}
+                    </p>
 
-                  <p className="text-xs text-muted-foreground">
-                    Disponible
-                  </p>
-                </div>
+                    <p className="text-xs text-muted-foreground">
+                      Disponible le
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 

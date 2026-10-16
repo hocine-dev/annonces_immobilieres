@@ -4,11 +4,11 @@ import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, SearchX } from "lucide-react";
 import { PropertyCard } from "./PropertyCard";
 
-const pageSizeOptions = [5, 10, 15];
+const pageSizeOptions = [3, 6, 9, 12];
 
 export function PropertyList({ properties }: { properties: any[] }) {
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(5);
+  const [pageSize, setPageSize] = useState(6);
 
   const totalPages = Math.max(1, Math.ceil(properties.length / pageSize));
 
@@ -54,7 +54,7 @@ export function PropertyList({ properties }: { properties: any[] }) {
             </p>
           </div>
         ) : (
-          <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3">
             {current.map((p) => (
               <PropertyCard key={p.id} property={p} />
             ))}
