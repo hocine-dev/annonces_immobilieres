@@ -10,6 +10,7 @@ import {
 
 import {
   Images,
+  RotateCcw,
   UploadCloud,
   X,
 } from "lucide-react"
@@ -20,12 +21,19 @@ import {
   MAX_PHOTO_SIZE,
 } from "@/lib/validators/photo"
 
+export type ExistingAnnoncePhoto = {
+  id: string
+  url: string
+}
+
 type PhotoDropzoneProps = {
   error?: string
+  existingPhotos?: ExistingAnnoncePhoto[]
 }
 
 export function PhotoDropzone({
   error,
+  existingPhotos = [],
 }: PhotoDropzoneProps) {
   const inputRef =
     useRef<HTMLInputElement>(null)
@@ -38,6 +46,15 @@ export function PhotoDropzone({
 
   const [isDragging, setIsDragging] =
     useState(false)
+
+  const [removedPhotoIds, setRemovedPhotoIds] =
+    useState<string[]>([])
+
+  const keptExistingPhotos = existingPhotos.filter(
+    (photo) => !removedPhotoIds.includes(photo.id),
+  )
+
+  const totalPhotos = keptExistingPhotos.length + files.length
 
   const previews = useMemo(
     () =>
@@ -123,9 +140,9 @@ export function PhotoDropzone({
         ) === index,
     )
 
-    if (merged.length > MAX_PHOTOS) {
+    if (keptExistingPhotos.length + merged.length > MAX_PHOTOS) {
       setLocalError(
-        `Vous pouvez ajouter au maximum ${MAX_PHOTOS} photos.`,
+        `Vous pouvez conserver au maximum ${MAX_PHOTOS} photos au total.`,
       )
       return
     }
@@ -144,8 +161,83 @@ export function PhotoDropzone({
     setLocalError("")
   }
 
+  function toggleExistingPhoto(id: string) {
+    setRemovedPhotoIds((current) =>
+      current.includes(id)
+        ? current.filter((value) => value !== id)
+        : [...current, id],
+    )
+    setLocalError("")
+  }
+
   return (
     <div>
+      {removedPhotoIds.map((id) => (
+        <input
+          key={id}
+          type="hidden"
+          name="removePhotoIds"
+          value={id}
+        />
+      ))}
+
+      {existingPhotos.length > 0 && (
+        <div className="mb-6">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <p className="text-sm font-semibold">Photos existantes</p>
+            <span className="text-xs text-muted-foreground">
+              {keptExistingPhotos.length} conservée(s)
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {existingPhotos.map((photo, index) => {
+              const removed = removedPhotoIds.includes(photo.id)
+
+              return (
+                <div
+                  key={photo.id}
+                  className={`relative aspect-[4/3] overflow-hidden rounded-xl border border-border bg-muted ${removed ? "opacity-60" : ""}`}
+                >
+                  <Image
+                    src={photo.url}
+                    alt={`Photo existante ${index + 1}`}
+                    fill
+                    sizes="(max-width: 640px) 50vw, 33vw"
+                    className="object-cover"
+                  />
+
+                  {removed && (
+                    <span className="absolute bottom-2 left-2 rounded-lg bg-black/75 px-2 py-1 text-xs font-semibold text-white">
+                      À supprimer
+                    </span>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => toggleExistingPhoto(photo.id)}
+                    aria-label={removed ? "Annuler la suppression" : "Marquer pour suppression"}
+                    title={removed ? "Annuler la suppression" : "Supprimer après enregistrement"}
+                    className="absolute right-2 top-2 flex size-8 items-center justify-center rounded-full bg-black/70 text-white transition hover:bg-destructive"
+                  >
+                    {removed ? (
+                      <RotateCcw className="size-4" />
+                    ) : (
+                      <X className="size-4" />
+                    )}
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+
+        </div>
+      )}
+
+      <p className="mb-3 text-sm text-muted-foreground" aria-live="polite">
+        {totalPhotos}/{MAX_PHOTOS} photos au total (conservées et nouvelles)
+      </p>
+
       <div
         role="button"
         tabIndex={0}
@@ -247,7 +339,7 @@ export function PhotoDropzone({
             </p>
 
             <span className="text-xs text-muted-foreground">
-              {files.length}/{MAX_PHOTOS}
+              {files.length} nouvelle(s) · {totalPhotos}/{MAX_PHOTOS} au total
             </span>
           </div>
 
