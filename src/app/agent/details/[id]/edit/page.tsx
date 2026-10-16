@@ -6,7 +6,9 @@ import { headers } from 'next/headers'
 import { notFound, redirect } from 'next/navigation'
 import React from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Save, Building, MapPin, Tag } from 'lucide-react'
+import Image from 'next/image'
+import { ArrowLeft, Save, Trash2, Upload } from 'lucide-react'
+import { updateAnnonce } from '../actions'
 
 type EditPageProps = {
   params: Promise<{
@@ -33,6 +35,7 @@ export default async function EditPage({ params }: EditPageProps) {
 
   const annonce = await prisma.annonce.findUnique({
     where: { id: parsedId.data },
+    include: { photos: true },
   })
 
   if (!annonce) {
@@ -44,37 +47,8 @@ export default async function EditPage({ params }: EditPageProps) {
     notFound()
   }
 
-  // --- SERVER ACTION (Mise à jour de l'annonce) ---
-  async function updateAnnonce(formData: FormData) {
-    'use server'
-
-    const titre = formData.get('titre') as string
-    const description = formData.get('description') as string
-    const ville = formData.get('ville') as string
-    const prix = parseFloat(formData.get('prix') as string)
-    const surface = parseInt(formData.get('surface') as string, 10)
-    const chambres = parseInt(formData.get('chambres') as string, 10)
-    const type = formData.get('type') as any
-    const typePropriete = formData.get('typePropriete') as any
-    const dateDisponibilite = new Date(formData.get('dateDisponibilite') as string)
-
-    await prisma.annonce.update({
-      where: { id: parsedId.data },
-      data: {
-        titre,
-        description,
-        ville,
-        prix,
-        surface,
-        chambres,
-        type,
-        typePropriete,
-        dateDisponibilite,
-      },
-    })
-
-    redirect(`/agent/details/${parsedId.data}`)
-  }
+  // Liaison de l'action serveur avec l'ID de l'annonce
+  const handleUpdateAnnonce = updateAnnonce.bind(null, parsedId.data)
 
   // Date au format YYYY-MM-DD pour l'input date
   const defaultDateStr = annonce.dateDisponibilite.toISOString().split('T')[0]
@@ -87,7 +61,7 @@ export default async function EditPage({ params }: EditPageProps) {
         {/* Retour vers le détail */}
         <div>
           <Link
-            href={`/details/${annonce.id}`}
+            href={`/agent/details/${annonce.id}`}
             className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -101,8 +75,8 @@ export default async function EditPage({ params }: EditPageProps) {
           </h1>
         </div>
 
-        {/* Formulaire d'édition */}
-        <form action={updateAnnonce} className="space-y-6">
+        {/* Formulaire d'édition (encType nécessaire pour le transfert de fichiers) */}
+        <form action={handleUpdateAnnonce} className="space-y-6">
           <div className="p-6 rounded-[var(--radius)] bg-card border border-border shadow-sm space-y-6">
             
             {/* Titre */}
@@ -150,7 +124,6 @@ export default async function EditPage({ params }: EditPageProps) {
                   <option value="APPARTEMENT">APPARTEMENT</option>
                   <option value="MAISON">MAISON</option>
                   <option value="TERRAIN">TERRAIN</option>
-                  <option value="LOCAL_COMMERCIAL">LOCAL COMMERCIAL</option>
                 </select>
               </div>
             </div>
@@ -166,6 +139,7 @@ export default async function EditPage({ params }: EditPageProps) {
                   step="0.01"
                   id="prix"
                   name="prix"
+                  min={1}
                   defaultValue={Number(annonce.prix)}
                   required
                   className="w-full px-4 py-2.5 rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-ring text-sm"
@@ -246,6 +220,61 @@ export default async function EditPage({ params }: EditPageProps) {
                 className="w-full px-4 py-2.5 rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-ring text-sm leading-relaxed"
               />
             </div>
+
+            {/* GESTION DES PHOTOS */}
+            <div className="space-y-4 pt-4 border-t border-border">
+              <h2 className="text-base font-semibold text-foreground">Gestion des photos</h2>
+
+              {/* Photos existantes avec option de suppression */}
+              {annonce.photos && annonce.photos.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    Cochez les photos que vous souhaitez supprimer :
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    {annonce.photos.map((photo) => (
+                      <div key={photo.id} className="relative group rounded-lg overflow-hidden border border-border bg-muted p-2 flex flex-col items-center gap-2">
+                        <div className="relative w-full h-28 rounded-md overflow-hidden">
+                          <Image
+                            src={photo.url}
+                            alt="Photo de l'annonce"
+                            fill
+                            className="object-cover"
+                          />
+                        </div>
+                        <label className="flex items-center gap-1.5 text-xs text-destructive cursor-pointer font-medium">
+                          <input
+                            type="checkbox"
+                            name="deletePhotos"
+                            value={photo.id}
+                            className="rounded border-input text-destructive focus:ring-destructive"
+                          />
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Supprimer
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Téléversement de nouvelles photos */}
+              <div className="space-y-2">
+                <label htmlFor="newPhotos" className="text-xs font-semibold text-foreground flex items-center gap-2">
+                  <Upload className="w-4 h-4 text-primary" />
+                  Ajouter de nouvelles photos
+                </label>
+                <input
+                  type="file"
+                  id="newPhotos"
+                  name="newPhotos"
+                  multiple
+                  accept="image/*"
+                  className="w-full text-xs text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-secondary file:text-secondary-foreground hover:file:opacity-90 cursor-pointer border border-input rounded-lg p-1.5"
+                />
+              </div>
+            </div>
+
           </div>
 
           {/* Boutons d'action */}
