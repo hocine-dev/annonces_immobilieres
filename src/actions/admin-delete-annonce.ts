@@ -23,7 +23,7 @@ type StagedFile = {
 }
 
 const uploadPattern =
-  /^\/uploads\/annonces\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png|webp)$/i
+  /^\/annonces\/uploads\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png|webp)$/i
 
 async function restoreFiles(files: StagedFile[]) {
   const results = await Promise.allSettled(
@@ -100,10 +100,16 @@ export async function adminDeleteAnnonce(
   // 5. Préparer les fichiers uploadés pour suppression
   try {
     for (const photo of annonce.photos) {
-      // Protéger les images du seed et les autres ressources.
+      // Ne supprimer physiquement que les uploads UUID, jamais les images du seed.
       if (!uploadPattern.test(photo.url)) {
         continue
       }
+
+      // Une photo partagée par une autre annonce doit rester sur le disque.
+      const otherUses = await prisma.photo.count({
+        where: { url: photo.url, annonceId: { not: annonce.id } },
+      })
+      if (otherUses > 0) continue
 
       const original = path.join(
         publicDirectory,

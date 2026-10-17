@@ -170,8 +170,8 @@ export async function adminUpdateAnnonce(
   const directory = path.join(
     process.cwd(),
     "public",
-    "uploads",
     "annonces",
+    "uploads",
   )
 
   const extensions: Record<string, string> = {
@@ -205,7 +205,11 @@ export async function adminUpdateAnnonce(
       await mkdir(trashDirectory, { recursive: true })
 
       for (const photo of deletedPhotos) {
-        const prefix = "/uploads/annonces/"
+        const otherUses = await prisma.photo.count({
+          where: { url: photo.url, annonceId: { not: existing.id } },
+        })
+        if (otherUses > 0) continue
+        const prefix = "/annonces/uploads/"
         const filename = photo.url.startsWith(prefix)
           ? photo.url.slice(prefix.length)
           : ""
@@ -253,7 +257,7 @@ export async function adminUpdateAnnonce(
       )
 
       writtenFiles.push(absolutePath)
-      newUrls.push(`/uploads/annonces/${filename}`)
+      newUrls.push(`/annonces/uploads/${filename}`)
     }
 
     await prisma.annonce.update({

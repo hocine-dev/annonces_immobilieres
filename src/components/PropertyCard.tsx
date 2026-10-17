@@ -65,7 +65,7 @@ export function PropertyCard({
 }: PropertyCardProps) {
   const image =
     property.photos?.[0]?.url ??
-    "/images/prop-maison.jpg"
+    "/annonces/uploads/prop-maison.jpg"
 
   const isSold = property.etat === "VENDU"
   const isRented = property.etat === "LOUE"

@@ -152,7 +152,7 @@ export default async function AnnonceDetailPage({
 
   const image =
     annonce.photos[0]?.url ??
-    "/images/prop-maison.jpg"
+    "/annonces/uploads/prop-maison.jpg"
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
