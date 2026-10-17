@@ -1,5 +1,6 @@
 
 import { readFileSync } from "node:fs"
+import { resolve } from "node:path"
 import { parse } from "dotenv"
 import { defineConfig } from "vitest/config"
 
@@ -31,6 +32,9 @@ process.env.DATABASE_URL = env.DATABASE_URL_TEST
 process.env.DATABASE_URL_TEST = env.DATABASE_URL_TEST
 
 export default defineConfig({
+  resolve: {
+    alias: { "@": resolve(process.cwd(), "src") },
+  },
   test: {
     environment: "node",
     include: ["tests/**/*.test.ts"],
