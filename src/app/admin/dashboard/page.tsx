@@ -9,6 +9,7 @@ import {
   ArrowRight,
   Plus,
   UserCog,
+  MessageCircleQuestion,
 } from "lucide-react"
 
 import { auth } from "@/lib/auth"
@@ -171,7 +172,7 @@ export default async function AdminDashboardPage() {
               </p>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-3">
+            <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
               <Link
                 href="/admin/users"
                 className="group rounded-3xl border border-border bg-card p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
@@ -220,25 +221,50 @@ export default async function AdminDashboardPage() {
                 </div>
               </Link>
 
-              <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
-                <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
-                  <Building2 className="h-6 w-6" />
-                </div>
-
-                <div className="flex items-center justify-between gap-3">
-                  <h3 className="font-display text-lg font-semibold">
-                    Toutes les annonces
-                  </h3>
-
-                  <span className="rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">
-                    Bientôt
-                  </span>
-                </div>
-
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  Gérez l'ensemble des annonces publiées par tous les agents.
-                </p>
+            <Link
+              href="/admin/annonces"
+              className="group rounded-3xl border border-border bg-card p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
+            >
+              <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                <Building2 className="h-6 w-6" />
               </div>
+
+              <h3 className="font-display text-lg font-semibold">
+                Toutes les annonces
+              </h3>
+
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                Consultez les annonces de tous les agents,
+                y compris les brouillons.
+              </p>
+
+              <div className="mt-5 flex items-center gap-2 text-sm font-semibold text-primary">
+                Gérer les annonces
+                <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
+              </div>
+            </Link>
+
+            <Link
+              href="/admin/questions"
+              className="group rounded-3xl border border-border bg-card p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
+            >
+              <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                <MessageCircleQuestion className="h-6 w-6" />
+              </div>
+
+              <h3 className="font-display text-lg font-semibold">
+                Questions clients
+              </h3>
+
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                Consultez les questions reçues et répondez aux clients.
+              </p>
+
+              <div className="mt-5 flex items-center gap-2 text-sm font-semibold text-primary">
+                Gérer les questions
+                <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
+              </div>
+            </Link>
             </div>
           </section>
         </div>

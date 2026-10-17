@@ -95,10 +95,10 @@ export async function deleteAnnonce(annonceId: string) {
     try {
       // Extrait juste le nom du fichier si 'photo.url' contient déjà '/images/nom.png'
       const fileName = path.basename(photo.url)
-      
+
       // Reconstruit le chemin absolu vers /public/images/nom.png
       const filePath = path.join(process.cwd(), 'public', 'images', fileName)
-      
+
       await unlink(filePath)
     } catch (error) {
       // Évite de bloquer la suppression BDD si le fichier physique est déjà inexistant

@@ -11,7 +11,7 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { Navbar } from "@/components/NavBar"
 import { Footer } from "@/components/Footer"
-import { changeUserRole } from "@/actions/change-user-role"
+import { UserRoleForm } from "@/components/admin/UserRoleForm"
 
 export default async function AdminUsersPage() {
   const session = await auth.api.getSession({
@@ -136,56 +136,15 @@ export default async function AdminUsersPage() {
 
                     {/* Action */}
                     <div>
-                      {user.role === "USER" && (
-                        <form action={changeUserRole}>
-                          <input
-                            type="hidden"
-                            name="userId"
-                            value={user.id}
-                          />
-
-                          <input
-                            type="hidden"
-                            name="role"
-                            value="AGENT"
-                          />
-
-                          <button
-                            type="submit"
-                            className="w-full rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
-                          >
-                            Promouvoir agent
-                          </button>
-                        </form>
-                      )}
-
-                      {user.role === "AGENT" && (
-                        <form action={changeUserRole}>
-                          <input
-                            type="hidden"
-                            name="userId"
-                            value={user.id}
-                          />
-
-                          <input
-                            type="hidden"
-                            name="role"
-                            value="USER"
-                          />
-
-                          <button
-                            type="submit"
-                            className="w-full rounded-lg border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-secondary"
-                          >
-                            Retirer le rôle
-                          </button>
-                        </form>
-                      )}
-
-                      {user.role === "ADMIN" && (
+                      {user.role === "ADMIN" ? (
                         <span className="text-sm text-muted-foreground">
                           Administrateur
                         </span>
+                      ) : (
+                        <UserRoleForm
+                          userId={user.id}
+                          currentRole={user.role}
+                        />
                       )}
                     </div>
                   </div>

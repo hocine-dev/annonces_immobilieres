@@ -38,10 +38,17 @@ export const createAnnonceSchema = z.object({
     .int("La surface doit être un entier")
     .positive("La surface doit être supérieure à 0"),
 
-  chambres: z.coerce
-    .number()
-    .int("Le nombre de chambres doit être un entier")
-    .min(0, "Le nombre de chambres ne peut pas être négatif"),
+  chambres: z.preprocess(
+    (value) =>
+      value === null ||
+      (typeof value === "string" && value.trim() === "")
+        ? undefined
+        : value,
+    z.coerce
+      .number()
+      .int("Le nombre de chambres doit être un entier")
+      .min(0, "Le nombre de chambres ne peut pas être négatif"),
+  ),
 })
 
 export type CreateAnnonceInput = z.infer<typeof createAnnonceSchema>

@@ -114,8 +114,8 @@ export async function createAnnonce(
   const uploadDirectory = path.join(
     process.cwd(),
     "public",
-    "uploads",
     "annonces",
+    "uploads",
   )
 
   await mkdir(uploadDirectory, {
@@ -158,7 +158,7 @@ export async function createAnnonce(
       writtenFiles.push(absolutePath)
 
       photoUrls.push(
-        `/uploads/annonces/${filename}`,
+        `/annonces/uploads/${filename}`,
       )
     }
   } catch {

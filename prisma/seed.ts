@@ -64,7 +64,7 @@ const annonces: SeedAnnonce[] = [
     ville: "Paris",
     surface: 96,
     chambres: 3,
-    image: "/images/prop-paris.jpg",
+    image: "/annonces/uploads/prop-paris.jpg",
   },
   {
     titre: "Loft lumineux rénové, quartier Confluence",
@@ -76,7 +76,7 @@ const annonces: SeedAnnonce[] = [
     ville: "Lyon",
     surface: 112,
     chambres: 3,
-    image: "/images/prop-salon.jpg",
+    image: "/annonces/uploads/prop-salon.jpg",
   },
   {
     titre: "Maison en pierre avec jardin arboré",
@@ -88,7 +88,7 @@ const annonces: SeedAnnonce[] = [
     ville: "Bordeaux",
     surface: 145,
     chambres: 4,
-    image: "/images/prop-maison.jpg",
+    image: "/annonces/uploads/prop-maison.jpg",
   },
   {
     titre: "Studio moderne au cœur du Vieux-Port",
@@ -100,7 +100,7 @@ const annonces: SeedAnnonce[] = [
     ville: "Marseille",
     surface: 34,
     chambres: 1,
-    image: "/images/04-studio-vieux-port-marseille.jpg",
+    image: "/annonces/uploads/04-studio-vieux-port-marseille.jpg",
   },
   {
     titre: "Appartement vue mer, Promenade des Anglais",
@@ -112,7 +112,7 @@ const annonces: SeedAnnonce[] = [
     ville: "Nice",
     surface: 88,
     chambres: 3,
-    image: "/images/05-appartement-vue-mer-nice.jpg",
+    image: "/annonces/uploads/05-appartement-vue-mer-nice.jpg",
   },
   {
     titre: "Maison familiale proche du centre",
@@ -124,7 +124,7 @@ const annonces: SeedAnnonce[] = [
     ville: "Nantes",
     surface: 128,
     chambres: 4,
-    image: "/images/06-maison-familiale-nantes.jpg",
+    image: "/annonces/uploads/06-maison-familiale-nantes.jpg",
   },
   {
     titre: "T3 avec terrasse, quartier Carmes",
@@ -136,7 +136,7 @@ const annonces: SeedAnnonce[] = [
     ville: "Toulouse",
     surface: 74,
     chambres: 2,
-    image: "/images/07-t3-terrasse-toulouse.jpg",
+    image: "/annonces/uploads/07-t3-terrasse-toulouse.jpg",
   },
   {
     titre: "Chalet contemporain vue lac",
@@ -148,7 +148,7 @@ const annonces: SeedAnnonce[] = [
     ville: "Annecy",
     surface: 160,
     chambres: 5,
-    image: "/images/08-chalet-vue-lac-annecy.jpg",
+    image: "/annonces/uploads/08-chalet-vue-lac-annecy.jpg",
   },
   {
     titre: "Appartement rénové, Vieux-Lille",
@@ -160,7 +160,7 @@ const annonces: SeedAnnonce[] = [
     ville: "Lille",
     surface: 68,
     chambres: 2,
-    image: "/images/09-appartement-vieux-lille.jpg",
+    image: "/annonces/uploads/09-appartement-vieux-lille.jpg",
   },
   {
     titre: "Villa avec piscine face à l'océan",
@@ -172,7 +172,7 @@ const annonces: SeedAnnonce[] = [
     ville: "Biarritz",
     surface: 210,
     chambres: 5,
-    image: "/images/10-villa-piscine-biarritz.jpg",
+    image: "/annonces/uploads/10-villa-piscine-biarritz.jpg",
   },
   {
     titre: "Duplex atypique, bords de Saône",
@@ -184,7 +184,7 @@ const annonces: SeedAnnonce[] = [
     ville: "Lyon",
     surface: 92,
     chambres: 3,
-    image: "/images/11-duplex-bords-saone-lyon.jpg",
+    image: "/annonces/uploads/11-duplex-bords-saone-lyon.jpg",
   },
   {
     titre: "Appartement de standing, Golden Triangle",
@@ -196,7 +196,7 @@ const annonces: SeedAnnonce[] = [
     ville: "Paris",
     surface: 134,
     chambres: 4,
-    image: "/images/12-appartement-standing-paris.jpg",
+    image: "/annonces/uploads/12-appartement-standing-paris.jpg",
   },
 ]
 
