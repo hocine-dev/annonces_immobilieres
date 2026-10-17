@@ -18,7 +18,7 @@ import { prisma } from "@/lib/prisma"
 import { Navbar } from "@/components/NavBar"
 import { Footer } from "@/components/Footer"
 import { Suspense } from "react"
-import { ToastListener } from "../details/[id]/ToastListener"
+import { ToastListener } from "../annonces/[id]/ToastListener"
 
 export default async function AgentDashboardPage() {
   const session = await auth.api.getSession({
@@ -330,7 +330,7 @@ export default async function AgentDashboardPage() {
                             : "Brouillon"}
                         </span>
                         <Link 
-                          href={`/agent/details/${annonce.id}`}
+                          href={`/agent/annonces/${annonce.id}`}
                           className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors cursor-pointer"
                         >
                           <Eye className="w-4 h-4" />

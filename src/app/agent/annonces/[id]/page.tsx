@@ -153,7 +153,7 @@ export default async function DetailsPage({
                   className="text-xs bg-card text-card-foreground border border-input rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-ring"
                 >
                   <option value="DISPONIBLE">DISPONIBLE</option>
-                  <option value="LOUE">LOUÉ</option>
+                  {annonce.type.toUpperCase() !== "VENTE" && <option value="LOUE">LOUÉ</option> }
                   <option value="VENDU">VENDU</option>
                 </select>
                 <button
@@ -347,7 +347,7 @@ export default async function DetailsPage({
               {isOwner ? (
                 <div className="space-y-3">
                   <Link
-                    href={`/agent/details/${annonce.id}/edit`}
+                    href={`/agent/annonces/${annonce.id}/edit`}
                     className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary hover:opacity-90 text-primary-foreground font-medium rounded-[var(--radius)] transition-opacity shadow-sm cursor-pointer"
                   >
                     <Pencil className="w-4 h-4" />

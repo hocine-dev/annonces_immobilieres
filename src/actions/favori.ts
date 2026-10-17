@@ -89,6 +89,7 @@ export async function toggleFavori(formData: FormData) {
   }
 
   revalidatePath(`/annonces/${annonceId}`)
+  revalidatePath("/favoris")
   revalidatePath("/dashboard")
 
   return {

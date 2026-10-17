@@ -61,7 +61,7 @@ export default async function EditPage({ params }: EditPageProps) {
         {/* Retour vers le détail */}
         <div>
           <Link
-            href={`/agent/details/${annonce.id}`}
+            href={`/agent/annonces/${annonce.id}`}
             className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />

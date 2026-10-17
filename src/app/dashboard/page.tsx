@@ -160,15 +160,18 @@ if (session.user.role === "ADMIN") {
                     Mes favoris
                   </h3>
 
-                  <span className="rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">
-                    Bientôt
-                  </span>
+
                 </div>
 
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
                   Retrouvez les annonces que vous avez enregistrées dans vos
                   favoris.
                 </p>
+
+                <Link href={`/favoris`} className="mt-5 flex items-center gap-2 text-sm font-semibold text-primary">
+                  Voir les Favoris
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                </Link>
               </div>
 
               {/* Questions */}
@@ -181,16 +184,17 @@ if (session.user.role === "ADMIN") {
                   <h3 className="font-display text-lg font-semibold">
                     Mes questions
                   </h3>
-
-                  <span className="rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">
-                    Bientôt
-                  </span>
                 </div>
 
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
                   Suivez les questions envoyées aux agents et consultez leurs
                   réponses.
                 </p>
+
+                <Link href={`/mesquestions`} className="mt-5 flex items-center gap-2 text-sm font-semibold text-primary">
+                  Voir les questions
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                </Link>
               </div>
             </div>
           </section>

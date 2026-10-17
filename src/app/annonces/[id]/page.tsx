@@ -23,6 +23,7 @@ import { QuestionForm } from "@/components/annonces/QuestionForm"
 
 import { toggleFavori } from "@/actions/favori"
 import { annonceIdSchema } from "@/lib/validators/interaction-annonce"
+import { FavoriButton } from "@/components/favoris/FavoriButton"
 
 type AnnoncePageProps = {
   params: Promise<{
@@ -391,34 +392,10 @@ export default async function AnnonceDetailPage({
 
             {/* Favori */}
             {canInteract ? (
-              <form action={toggleFavori}>
-                <input
-                  type="hidden"
-                  name="annonceId"
-                  value={annonce.id}
-                />
-
-                <button
-                  type="submit"
-                  className={`flex w-full items-center justify-center gap-2 rounded-2xl border px-5 py-4 text-sm font-semibold shadow-sm transition ${
-                    isFavorite
-                      ? "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
-                      : "border-border bg-card text-foreground hover:border-primary/30 hover:bg-primary/[0.03]"
-                  }`}
-                >
-                  <Heart
-                    className={`size-5 ${
-                      isFavorite
-                        ? "fill-current"
-                        : ""
-                    }`}
-                  />
-
-                  {isFavorite
-                    ? "Retirer des favoris"
-                    : "Ajouter aux favoris"}
-                </button>
-              </form>
+              <FavoriButton 
+                annonceId={annonce.id} 
+                isFavoriteInitial={isFavorite} 
+              />
             ) : !session ? (
               <Link
                 href="/login"

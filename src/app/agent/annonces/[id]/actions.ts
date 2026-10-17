@@ -5,11 +5,37 @@ import { prisma } from '@/lib/prisma'
 import { redirect } from 'next/navigation'
 import { unlink,writeFile } from 'fs/promises'
 import path from 'path'
+import { auth } from '@/lib/auth'
+import { headers } from 'next/headers'
 
 export async function updateStatutPublication(
   annonceId: string,
   formData: FormData
 ) {
+  // 1. Authentification
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    })
+  
+    if (!session) {
+      return {
+        success: false,
+        message: "Vous devez être connecté.",
+      }
+    }
+  
+    // 2. Autorisation
+    if (
+      session.user.role !== "USER" &&
+      session.user.role !== "ADMIN"
+    ) {
+      return {
+        success: false,
+        message:
+          "Cette fonctionnalité est réservée aux utilisateurs.",
+      }
+    }
+
   const nouveauStatut = formData.get('statut') as 'BROUILLON' | 'PUBLIE'
 
   await prisma.annonce.update({
@@ -17,7 +43,7 @@ export async function updateStatutPublication(
     data: { statut: nouveauStatut },
   })
 
-  redirect(`/agent/details/${annonceId}?toast=statut_ok`)
+  redirect(`/agent/annonces/${annonceId}?toast=statut_ok`)
 }
 
 export async function updateEtatBien(
@@ -31,9 +57,33 @@ export async function updateEtatBien(
     data: { etat: nouvelEtat },
   })
 
-  redirect(`/agent/details/${annonceId}?toast=etat_ok`)
+  redirect(`/agent/annonces/${annonceId}?toast=etat_ok`)
 }
 export async function deleteAnnonce(annonceId: string) {
+  // 1. Authentification
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  })
+
+  if (!session) {
+    return {
+      success: false,
+      message: "Vous devez être connecté.",
+    }
+  }
+
+  // 2. Autorisation
+  if (
+    session.user.role !== "USER" &&
+    session.user.role !== "ADMIN"
+  ) {
+    return {
+      success: false,
+      message:
+        "Cette fonctionnalité est réservée aux utilisateurs.",
+    }
+  }
+
   // 1. Récupérer les photos associées à l'annonce
   const photos = await prisma.photo.findMany({
     where: { annonceId },
@@ -66,6 +116,30 @@ export async function deleteAnnonce(annonceId: string) {
 }
 
 export async function updateAnnonce(annonceId: string, formData: FormData) {
+  // 1. Authentification
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    })
+  
+    if (!session) {
+      return {
+        success: false,
+        message: "Vous devez être connecté.",
+      }
+    }
+  
+    // 2. Autorisation
+    if (
+      session.user.role !== "USER" &&
+      session.user.role !== "ADMIN"
+    ) {
+      return {
+        success: false,
+        message:
+          "Cette fonctionnalité est réservée aux utilisateurs.",
+      }
+    }
+    
   const titre = formData.get('titre') as string
   const description = formData.get('description') as string
   const ville = formData.get('ville') as string
@@ -145,5 +219,5 @@ export async function updateAnnonce(annonceId: string, formData: FormData) {
     }
   }
 
-  redirect(`/agent/details/${annonceId}?toast=updated`)
+  redirect(`/agent/annonces/${annonceId}?toast=updated`)
 }
