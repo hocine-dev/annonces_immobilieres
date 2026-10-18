@@ -53,6 +53,59 @@ async function ensureAgent(
   return user
 }
 
+async function ensureUser(
+  name: string,
+  email: string,
+  password: string,
+) {
+  let user = await prisma.user.findUnique({
+    where: { email },
+  })
+
+  if (!user) {
+    await auth.api.signUpEmail({
+      body: { name, email, password },
+    })
+
+    user = await prisma.user.findUniqueOrThrow({
+      where: { email },
+    })
+  }
+
+  if (user.role !== "USER") {
+    throw new Error(
+      `Le compte ${email} existe avec un rôle différent de USER.`,
+    )
+  }
+
+  return user
+}
+
+async function ensureAdmin(name: string, email: string, password: string) {
+  const existing = await prisma.user.findUnique({ where: { email } })
+
+  if (existing) {
+    // Ne jamais promouvoir un compte préexistant non administrateur.
+    if (existing.role !== "ADMIN") {
+      throw new Error(
+        `Le compte ${email} existe avec un autre rôle : promotion automatique refusée.`,
+      )
+    }
+    console.log("[OK] Compte ADMIN déjà présent.")
+    return existing
+  }
+
+  // Better Auth crée un USER ; la promotion est effectuée côté serveur.
+  await auth.api.signUpEmail({ body: { name, email, password } })
+  const created = await prisma.user.findUniqueOrThrow({ where: { email } })
+  const admin = await prisma.user.update({
+    where: { id: created.id },
+    data: { role: "ADMIN" },
+  })
+  console.log("[OK] Compte ADMIN de démonstration créé.")
+  return admin
+}
+
 const annonces: SeedAnnonce[] = [
   {
     titre: "Appartement haussmannien avec balcon",
@@ -217,6 +270,31 @@ async function main() {
     )
   }
 
+  const adminEmail = process.env.SEED_ADMIN_EMAIL?.trim()
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD
+
+  if (!adminEmail || !adminPassword || adminPassword.length < 12) {
+    throw new Error(
+      "SEED_ADMIN_EMAIL et SEED_ADMIN_PASSWORD (12 caractères minimum) sont obligatoires.",
+    )
+  }
+
+  const seedEmails = [
+    adminEmail,
+    agent1Email,
+    agent2Email,
+    process.env.SEED_USER_1_EMAIL,
+    process.env.SEED_USER_2_EMAIL,
+  ]
+  if (
+    seedEmails.some((email) => !email?.trim()) ||
+    new Set(seedEmails.map((email) => email!.trim().toLowerCase())).size !== seedEmails.length
+  ) {
+    throw new Error("Tous les comptes de démonstration doivent avoir des emails distincts.")
+  }
+
+  await ensureAdmin("Administrateur Horizon", adminEmail, adminPassword)
+
   const agent1 = await ensureAgent(
     "Agent Horizon 1",
     agent1Email,
@@ -229,10 +307,54 @@ async function main() {
     agent2Password,
   )
 
+  const users = [
+    {
+      name: "Utilisateur Horizon 1",
+      email: process.env.SEED_USER_1_EMAIL,
+      password: process.env.SEED_USER_1_PASSWORD,
+    },
+    {
+      name: "Utilisateur Horizon 2",
+      email: process.env.SEED_USER_2_EMAIL,
+      password: process.env.SEED_USER_2_PASSWORD,
+    },
+  ]
+
+  if (users.some((user) => !user.email || !user.password)) {
+    throw new Error("Variables SEED_USER_1 et SEED_USER_2 incomplètes.")
+  }
+
+  const emails = [
+    agent1Email,
+    agent2Email,
+    ...users.map((user) => user.email),
+  ]
+
+  if (new Set(emails).size !== emails.length) {
+    throw new Error("Chaque compte du seed doit avoir un email distinct.")
+  }
+
+  for (const user of users) {
+    await ensureUser(user.name, user.email!, user.password!)
+  }
+
   console.log("🏠 Création des annonces...")
 
   for (const [index, bien] of annonces.entries()) {
     const auteur = index % 2 === 0 ? agent1 : agent2
+
+    const existing = await prisma.annonce.findFirst({
+      where: {
+        titre: bien.titre,
+        auteurId: auteur.id,
+      },
+      select: { id: true },
+    })
+
+    if (existing) {
+      console.log(`Annonce déjà présente : ${bien.titre}`)
+      continue
+    }
 
     await prisma.annonce.create({
       data: {
