@@ -38,7 +38,11 @@ vi.mock("next/headers", () => ({
 }))
 
 vi.mock("next/navigation", () => ({
-  redirect: mocks.redirect,
+
+  notFound: () => {
+    throw new Error("NEXT_NOT_FOUND")
+  },
+redirect: mocks.redirect,
 }))
 
 vi.mock("next/cache", () => ({
@@ -82,10 +86,10 @@ describe("Sécurité AGENT - Protection IDOR", () => {
       const formData = new FormData()
       formData.set("statut", "PUBLIE")
 
-      await updateStatutPublication(
+      await expect(updateStatutPublication(
         "annonce-agent-a",
         formData,
-      )
+      )).rejects.toThrow("NEXT_NOT_FOUND")
 
       // Aucune modification ne doit être effectuée.
       expect(mocks.update).not.toHaveBeenCalled()

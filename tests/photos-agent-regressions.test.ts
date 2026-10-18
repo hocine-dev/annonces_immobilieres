@@ -7,6 +7,7 @@ import path from "node:path"
 const mock = vi.hoisted(() => ({
   session: vi.fn(),
   findFirst: vi.fn(),
+  findUnique: vi.fn(),
   annonceUpdate: vi.fn(),
   annonceUpdateMany: vi.fn(),
   annonceDelete: vi.fn(),
@@ -28,7 +29,10 @@ const mock = vi.hoisted(() => ({
 vi.mock("@/lib/auth", () => ({ auth: { api: { getSession: mock.session } } }))
 vi.mock("next/headers", () => ({ headers: vi.fn(async () => new Headers()) }))
 vi.mock("next/cache", () => ({ revalidatePath: mock.revalidatePath }))
-vi.mock("next/navigation", () => ({ redirect: mock.redirect }))
+vi.mock("next/navigation", () => ({
+  redirect: mock.redirect,
+  notFound: () => { throw new Error("NEXT_NOT_FOUND") },
+}))
 vi.mock("node:fs/promises", () => ({
   writeFile: mock.writeFile, unlink: mock.unlink, mkdir: mock.mkdir, rename: mock.rename,
 }))
@@ -39,6 +43,7 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     annonce: {
       findFirst: mock.findFirst,
+      findUnique: mock.findUnique,
       update: mock.annonceUpdate,
       updateMany: mock.annonceUpdateMany,
       delete: mock.annonceDelete,
@@ -60,7 +65,7 @@ import {
   updateAnnonce,
   updateEtatBien,
   updateStatutPublication,
-} from "@/app/agent/details/[id]/actions"
+} from "@/app/agent/annonces/[id]/actions"
 
 const uuidUrl = "/annonces/uploads/9fbaba61-55e9-4866-ba6c-ac3607c1cc82.png"
 
@@ -90,7 +95,12 @@ async function ignoreRejection(action: Promise<unknown>): Promise<void> {
 beforeEach(() => {
   vi.resetAllMocks()
   mock.session.mockResolvedValue({ user: { id: "agent-b", role: "AGENT" } })
-  mock.findFirst.mockResolvedValue(null) // l'annonce ciblée appartient à agent-a
+  mock.findFirst.mockResolvedValue(null)
+  mock.findUnique.mockResolvedValue({
+    id: "annonce-a",
+    auteurId: "agent-a",
+    type: "VENTE",
+  })
   mock.annonceUpdate.mockResolvedValue({ id: "annonce-a" })
   mock.annonceUpdateMany.mockResolvedValue({ count: 0 })
   mock.annonceDelete.mockResolvedValue({ id: "annonce-a" })
@@ -105,7 +115,7 @@ beforeEach(() => {
   mock.mkdir.mockResolvedValue(undefined)
   mock.rename.mockResolvedValue(undefined)
   mock.transaction.mockImplementation(async (callback: (tx: unknown) => Promise<unknown>) =>
-    callback({ annonce: { updateMany: mock.annonceUpdateMany }, photo: { deleteMany: mock.photoDeleteMany, createMany: mock.photoCreateMany } }),
+    callback({ annonce: { update: mock.annonceUpdate, updateMany: mock.annonceUpdateMany }, photo: { deleteMany: mock.photoDeleteMany, createMany: mock.photoCreateMany } }),
   )
 })
 
@@ -147,11 +157,21 @@ describe("Photos — sécurité des Server Actions AGENT (régressions)", () => 
     mock.session.mockResolvedValue({ user: { id: "agent-a", role: "AGENT" } })
     mock.findFirst.mockResolvedValue({ id: "annonce-a", photos: [] })
     mock.annonceUpdateMany.mockResolvedValue({ count: 1 })
-    mock.photoFindMany.mockResolvedValue([{ id: "photo-b", url: uuidUrl }])
+    mock.photoFindMany.mockImplementation(
+      async (query: { where?: { annonceId?: string } }) =>
+        query.where?.annonceId === "annonce-a"
+          ? []
+          : [{ id: "photo-b", url: uuidUrl }],
+    )
     const data = form()
     data.append("deletePhotos", "photo-b")
 
     await ignoreRejection(updateAnnonce("annonce-a", data))
+    expect(mock.photoFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ annonceId: "annonce-a" }),
+      }),
+    )
     expect(mock.photoDeleteMany).not.toHaveBeenCalled()
     expect(mock.unlink).not.toHaveBeenCalled()
   })
@@ -171,7 +191,10 @@ describe("Photos — sécurité des Server Actions AGENT (régressions)", () => 
     mock.findFirst.mockResolvedValue({ id: "annonce-a", photos: [] })
     mock.annonceUpdateMany.mockResolvedValue({ count: 1 })
     const data = form()
-    data.append("newPhotos", new File([new Uint8Array([137, 80, 78, 71])], "photo.png", { type: "image/png" }))
+    data.append("newPhotos", new File([Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGNgYGAAAAAEAAH2FzhVAAAAAElFTkSuQmCC",
+      "base64",
+    )], "photo.png", { type: "image/png" }))
 
     await ignoreRejection(updateAnnonce("annonce-a", data))
     expect(mock.writeFile).toHaveBeenCalled()
