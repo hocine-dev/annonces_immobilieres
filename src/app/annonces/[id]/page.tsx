@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { Suspense } from "react"
 import { headers } from "next/headers"
 import { notFound } from "next/navigation"
 
@@ -11,7 +12,6 @@ import {
   MapPin,
   Ruler,
   UserRound,
-  MessageCircleQuestion,
 } from "lucide-react"
 
 import { auth } from "@/lib/auth"
@@ -20,6 +20,7 @@ import { prisma } from "@/lib/prisma"
 import { Navbar } from "@/components/NavBar"
 import { Footer } from "@/components/Footer"
 import { QuestionForm } from "@/components/annonces/QuestionForm"
+import { QuestionsAnnonce, QuestionsSkeleton } from "@/components/annonces/QuestionsAnnonce"
 
 import { FavoriteToggleForm } from "@/components/annonces/FavoriteToggleForm"
 import { annonceIdSchema } from "@/lib/validators/interaction-annonce"
@@ -88,21 +89,6 @@ export default async function AnnonceDetailPage({
         select: {
           id: true,
           name: true,
-        },
-      },
-
-      questions: {
-        orderBy: {
-          createdAt: "desc",
-        },
-
-        include: {
-          auteur: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
         },
       },
 
@@ -301,85 +287,10 @@ export default async function AnnonceDetailPage({
               </p>
             </section>
 
-            {/* Questions */}
-            <section className="py-8">
-              <div className="mb-6 flex items-center gap-3">
-                <div className="flex size-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                  <MessageCircleQuestion className="size-5" />
-                </div>
-
-                <div>
-                  <h2 className="font-display text-2xl font-semibold">
-                    Questions sur ce bien
-                  </h2>
-
-                  <p className="text-sm text-muted-foreground">
-                    {annonce.questions.length} question
-                    {annonce.questions.length > 1
-                      ? "s"
-                      : ""}
-                  </p>
-                </div>
-              </div>
-
-              {annonce.questions.length === 0 ? (
-                <div className="rounded-3xl border border-dashed border-border p-8 text-center text-muted-foreground">
-                  Aucune question pour le moment.
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {annonce.questions.map(
-                    (question) => (
-                      <article
-                        key={question.id}
-                        className="rounded-3xl border border-border bg-card p-6 shadow-sm"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                            <UserRound className="size-4" />
-                          </div>
-
-                          <div>
-                            <p className="text-sm font-semibold">
-                              {
-                                question.auteur
-                                  .name
-                              }
-                            </p>
-
-                            <p className="text-xs text-muted-foreground">
-                              {question.createdAt.toLocaleDateString(
-                                "fr-FR",
-                              )}
-                            </p>
-                          </div>
-                        </div>
-
-                        <p className="mt-4 leading-7">
-                          {question.texte}
-                        </p>
-
-                        {question.reponse ? (
-                          <div className="mt-5 rounded-2xl border-l-4 border-gold bg-gold/10 p-5">
-                            <p className="text-xs font-bold uppercase tracking-wider text-amber-700">
-                              Réponse de l'agent
-                            </p>
-
-                            <p className="mt-2 leading-7 text-foreground">
-                              {question.reponse}
-                            </p>
-                          </div>
-                        ) : (
-                          <p className="mt-4 text-sm italic text-muted-foreground">
-                            En attente d'une réponse de l'agent.
-                          </p>
-                        )}
-                      </article>
-                    ),
-                  )}
-                </div>
-              )}
-            </section>
+            {/* Questions chargées indépendamment du détail de l'annonce. */}
+            <Suspense fallback={<QuestionsSkeleton />}>
+              <QuestionsAnnonce annonceId={annonce.id} />
+            </Suspense>
           </div>
 
           {/* Sidebar */}
@@ -408,15 +319,9 @@ export default async function AnnonceDetailPage({
 
             {/* Favori */}
             {canInteract ? (
-<<<<<<< HEAD
               <FavoriButton 
                 annonceId={annonce.id} 
                 isFavoriteInitial={isFavorite} 
-=======
-              <FavoriteToggleForm
-                annonceId={annonce.id}
-                initialIsFavorite={isFavorite}
->>>>>>> 3441860fdc8a1a89e7331432b0173a938d2eb670
               />
             ) : !session ? (
               <Link

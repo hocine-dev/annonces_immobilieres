@@ -30,7 +30,7 @@ export default async function NouvelleAnnoncePage() {
         <div className="mx-auto max-w-4xl px-4">
           <div className="mb-10">
             <span className="text-xs font-bold uppercase tracking-widest text-gold-foreground">
-              Espace agent
+              Gestion des annonces
             </span>
 
             <h1 className="mt-2 font-display text-3xl font-bold text-foreground">

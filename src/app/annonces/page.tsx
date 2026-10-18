@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic"
+
 import { Navbar } from "@/components/NavBar"
 import { Footer } from "@/components/Footer"
 import { PropertyList } from "@/components/PropertyList"

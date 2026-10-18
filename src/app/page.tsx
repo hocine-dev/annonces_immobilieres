@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic"
+
 import { prisma } from "@/lib/prisma";
 import { Navbar } from "@/components/NavBar";
 import { Footer } from "@/components/Footer";

@@ -40,6 +40,26 @@ const inputWithIconClass =
 const labelClass =
   "mb-2 block text-sm font-semibold text-foreground"
 
+// Présentation uniquement : ne modifie pas les règles Zod côté serveur.
+function adminErreurEnFrancais(champ: string, erreur: string): string {
+  // Les messages déjà rédigés en français sont conservés.
+  if (/^(Le |La |Les |L'|Une |Un |Veuillez |Saisissez |Indiquez |Sélectionnez |Choisissez |Ce |Cette |Vous |Impossible |Format |Fichier |Photo |Au moins |Trop )/i.test(erreur)) {
+    return erreur
+  }
+  const traduction: Record<string, string> = {
+    titre: "Saisissez un titre valide et suffisamment long.",
+    description: "La description est trop courte ou invalide.",
+    type: "Sélectionnez un type d'opération valide.",
+    typePropriete: "Sélectionnez un type de propriété valide.",
+    prix: "Saisissez un prix valide, supérieur à zéro.",
+    ville: "Saisissez une ville valide.",
+    surface: "Indiquez une surface valide, supérieure à zéro.",
+    chambres: "Indiquez un nombre entier de chambres, supérieur ou égal à zéro.",
+    dateDisponibilite: "Saisissez une date de disponibilité valide.",
+  }
+  return traduction[champ] ?? "Veuillez vérifier cette valeur."
+}
+
 export function CreateAnnonceForm({
   mode = "create",
   annonceId,
@@ -56,6 +76,15 @@ export function CreateAnnonceForm({
     action,
     { success: false, values: initialValues } as CreateAnnonceState,
   )
+
+  const adminErreurs = Object.fromEntries(
+    Object.entries(state.errors ?? {}).map(([champ, erreurs]) => [
+      champ,
+      (Array.isArray(erreurs) ? erreurs : []).map((erreur) =>
+        adminErreurEnFrancais(champ, erreur),
+      ),
+    ]),
+  ) as Record<string, string[] | undefined>
 
   const feedbackRef = useRef<HTMLDivElement>(null)
 
@@ -77,7 +106,13 @@ export function CreateAnnonceForm({
   }, [state])
 
   return (
-    <form action={formAction} className="space-y-8">
+    <form id="admin-annonce-form" action={formAction} noValidate className="space-y-8">
+        <style>{`
+          #admin-annonce-form [aria-invalid="true"] {
+            border-color: var(--destructive) !important;
+            box-shadow: 0 0 0 2px color-mix(in srgb, var(--destructive) 18%, transparent);
+          }
+        `}</style>
       {state.message && !state.success && (
         <div
           role="alert"
@@ -153,20 +188,20 @@ export function CreateAnnonceForm({
                 type="text"
                 defaultValue={state.values?.titre ?? ""}
                 placeholder="Appartement avec vue sur mer"
-                aria-invalid={Boolean(state.errors?.titre)}
+                aria-invalid={Boolean(adminErreurs?.titre)}
                 aria-describedby={
-                  state.errors?.titre ? "titre-error" : undefined
+                  adminErreurs?.titre ? "titre-error" : undefined
                 }
                 className={inputWithIconClass}
               />
             </div>
 
-            {state.errors?.titre?.[0] && (
+            {adminErreurs?.titre?.[0] && (
               <p
                 id="titre-error"
                 className="mt-2 text-sm font-medium text-destructive"
               >
-                {state.errors.titre[0]}
+                {adminErreurs.titre[0]}
               </p>
             )}
           </div>
@@ -186,9 +221,9 @@ export function CreateAnnonceForm({
                 rows={6}
                 defaultValue={state.values?.description ?? ""}
                 placeholder="Décrivez le bien, son environnement et ses principaux atouts..."
-                aria-invalid={Boolean(state.errors?.description)}
+                aria-invalid={Boolean(adminErreurs?.description)}
                 aria-describedby={
-                  state.errors?.description
+                  adminErreurs?.description
                     ? "description-error"
                     : undefined
                 }
@@ -196,12 +231,12 @@ export function CreateAnnonceForm({
               />
             </div>
 
-            {state.errors?.description?.[0] && (
+            {adminErreurs?.description?.[0] && (
               <p
                 id="description-error"
                 className="mt-2 text-sm font-medium text-destructive"
               >
-                {state.errors.description[0]}
+                {adminErreurs.description[0]}
               </p>
             )}
           </div>
@@ -233,7 +268,7 @@ export function CreateAnnonceForm({
               id="type"
               name="type"
               defaultValue={state.values?.type ?? ""}
-              aria-invalid={Boolean(state.errors?.type)}
+              aria-invalid={Boolean(adminErreurs?.type)}
               className={inputClass}
             >
               <option value="">Sélectionner</option>
@@ -241,9 +276,9 @@ export function CreateAnnonceForm({
               <option value="LOCATION">Location</option>
             </select>
 
-            {state.errors?.type?.[0] && (
+            {adminErreurs?.type?.[0] && (
               <p className="mt-2 text-sm font-medium text-destructive">
-                {state.errors.type[0]}
+                {adminErreurs.type[0]}
               </p>
             )}
           </div>
@@ -258,7 +293,7 @@ export function CreateAnnonceForm({
               id="typePropriete"
               name="typePropriete"
               defaultValue={state.values?.typePropriete ?? ""}
-              aria-invalid={Boolean(state.errors?.typePropriete)}
+              aria-invalid={Boolean(adminErreurs?.typePropriete)}
               className={inputClass}
             >
               <option value="">Sélectionner</option>
@@ -269,9 +304,9 @@ export function CreateAnnonceForm({
               <option value="LOFT">Loft</option>
             </select>
 
-            {state.errors?.typePropriete?.[0] && (
+            {adminErreurs?.typePropriete?.[0] && (
               <p className="mt-2 text-sm font-medium text-destructive">
-                {state.errors.typePropriete[0]}
+                {adminErreurs.typePropriete[0]}
               </p>
             )}
           </div>
@@ -308,14 +343,14 @@ export function CreateAnnonceForm({
                 type="text"
                 defaultValue={state.values?.ville ?? ""}
                 placeholder="Le Havre"
-                aria-invalid={Boolean(state.errors?.ville)}
+                aria-invalid={Boolean(adminErreurs?.ville)}
                 className={inputWithIconClass}
               />
             </div>
 
-            {state.errors?.ville?.[0] && (
+            {adminErreurs?.ville?.[0] && (
               <p className="mt-2 text-sm font-medium text-destructive">
-                {state.errors.ville[0]}
+                {adminErreurs.ville[0]}
               </p>
             )}
           </div>
@@ -337,14 +372,14 @@ export function CreateAnnonceForm({
                 step="0.01"
                 defaultValue={state.values?.prix ?? ""}
                 placeholder="250000"
-                aria-invalid={Boolean(state.errors?.prix)}
+                aria-invalid={Boolean(adminErreurs?.prix)}
                 className={inputWithIconClass}
               />
             </div>
 
-            {state.errors?.prix?.[0] && (
+            {adminErreurs?.prix?.[0] && (
               <p className="mt-2 text-sm font-medium text-destructive">
-                {state.errors.prix[0]}
+                {adminErreurs.prix[0]}
               </p>
             )}
           </div>
@@ -365,7 +400,7 @@ export function CreateAnnonceForm({
                 min="1"
                 defaultValue={state.values?.surface ?? ""}
                 placeholder="75"
-                aria-invalid={Boolean(state.errors?.surface)}
+                aria-invalid={Boolean(adminErreurs?.surface)}
                 className={inputWithIconClass}
               />
             </div>
@@ -374,9 +409,9 @@ export function CreateAnnonceForm({
               Surface en m²
             </p>
 
-            {state.errors?.surface?.[0] && (
+            {adminErreurs?.surface?.[0] && (
               <p className="mt-2 text-sm font-medium text-destructive">
-                {state.errors.surface[0]}
+                {adminErreurs.surface[0]}
               </p>
             )}
           </div>
@@ -397,14 +432,14 @@ export function CreateAnnonceForm({
                 min="0"
                 defaultValue={state.values?.chambres ?? ""}
                 placeholder="3"
-                aria-invalid={Boolean(state.errors?.chambres)}
+                aria-invalid={Boolean(adminErreurs?.chambres)}
                 className={inputWithIconClass}
               />
             </div>
 
-            {state.errors?.chambres?.[0] && (
+            {adminErreurs?.chambres?.[0] && (
               <p className="mt-2 text-sm font-medium text-destructive">
-                {state.errors.chambres[0]}
+                {adminErreurs.chambres[0]}
               </p>
             )}
           </div>
@@ -425,15 +460,15 @@ export function CreateAnnonceForm({
               type="date"
               defaultValue={state.values?.dateDisponibilite ?? ""}
               aria-invalid={Boolean(
-                state.errors?.dateDisponibilite,
+                adminErreurs?.dateDisponibilite,
               )}
               className={inputWithIconClass}
             />
           </div>
 
-          {state.errors?.dateDisponibilite?.[0] && (
+          {adminErreurs?.dateDisponibilite?.[0] && (
             <p className="mt-2 text-sm font-medium text-destructive">
-              {state.errors.dateDisponibilite[0]}
+              {adminErreurs.dateDisponibilite[0]}
             </p>
           )}
         </div>
@@ -456,7 +491,7 @@ export function CreateAnnonceForm({
 
         <PhotoDropzone
           existingPhotos={isEdit ? existingPhotos : []}
-          error={state.errors?.photos?.[0]}
+          error={adminErreurs?.photos?.[0]}
         />
       </section>
 
