@@ -154,7 +154,7 @@ export default async function DetailsPage({
                 >
                   <option value="DISPONIBLE">DISPONIBLE</option>
                   {annonce.type.toUpperCase() !== "VENTE" && <option value="LOUE">LOUÉ</option> }
-                  <option value="VENDU">VENDU</option>
+                  {annonce.type.toUpperCase() === "VENTE" && <option value="VENDU">VENDU</option>}
                 </select>
                 <button
                   type="submit"

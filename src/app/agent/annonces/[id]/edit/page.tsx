@@ -8,7 +8,7 @@ import React from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { ArrowLeft, Save, Trash2, Upload } from 'lucide-react'
-import { updateAnnonce } from '../actions'
+import { EditValidationForm, EditFieldError } from "./EditValidationForm"
 
 type EditPageProps = {
   params: Promise<{
@@ -48,7 +48,6 @@ export default async function EditPage({ params }: EditPageProps) {
   }
 
   // Liaison de l'action serveur avec l'ID de l'annonce
-  const handleUpdateAnnonce = updateAnnonce.bind(null, parsedId.data)
 
   // Date au format YYYY-MM-DD pour l'input date
   const defaultDateStr = annonce.dateDisponibilite.toISOString().split('T')[0]
@@ -76,7 +75,7 @@ export default async function EditPage({ params }: EditPageProps) {
         </div>
 
         {/* Formulaire d'édition (encType nécessaire pour le transfert de fichiers) */}
-        <form action={handleUpdateAnnonce} className="space-y-6">
+        <EditValidationForm annonceId={parsedId.data}>
           <div className="p-6 rounded-[var(--radius)] bg-card border border-border shadow-sm space-y-6">
             
             {/* Titre */}
@@ -91,7 +90,8 @@ export default async function EditPage({ params }: EditPageProps) {
                 defaultValue={annonce.titre}
                 required
                 className="w-full px-4 py-2.5 rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-ring text-sm"
-              />
+              aria-describedby="titre-error" />
+              <EditFieldError name="titre" />
             </div>
 
             {/* Types de bien et de propriété */}
@@ -105,10 +105,11 @@ export default async function EditPage({ params }: EditPageProps) {
                   name="type"
                   defaultValue={annonce.type}
                   className="w-full px-4 py-2.5 rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-ring text-sm"
-                >
+                 aria-describedby="type-error">
                   <option value="VENTE">VENTE</option>
                   <option value="LOCATION">LOCATION</option>
                 </select>
+                <EditFieldError name="type" />
               </div>
 
               <div className="space-y-2">
@@ -120,11 +121,14 @@ export default async function EditPage({ params }: EditPageProps) {
                   name="typePropriete"
                   defaultValue={annonce.typePropriete}
                   className="w-full px-4 py-2.5 rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-ring text-sm"
-                >
+                 aria-describedby="typePropriete-error">
                   <option value="APPARTEMENT">APPARTEMENT</option>
                   <option value="MAISON">MAISON</option>
-                  <option value="TERRAIN">TERRAIN</option>
+                  <option value="VILLA">VILLA</option>
+                  <option value="STUDIO">STUDIO</option>
+                  <option value="LOFT">LOFT</option>
                 </select>
+                <EditFieldError name="typePropriete" />
               </div>
             </div>
 
@@ -143,7 +147,8 @@ export default async function EditPage({ params }: EditPageProps) {
                   defaultValue={Number(annonce.prix)}
                   required
                   className="w-full px-4 py-2.5 rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-ring text-sm"
-                />
+                aria-describedby="prix-error" />
+                <EditFieldError name="prix" />
               </div>
 
               <div className="space-y-2">
@@ -157,7 +162,8 @@ export default async function EditPage({ params }: EditPageProps) {
                   defaultValue={annonce.ville}
                   required
                   className="w-full px-4 py-2.5 rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-ring text-sm"
-                />
+                aria-describedby="ville-error" />
+                <EditFieldError name="ville" />
               </div>
             </div>
 
@@ -174,7 +180,8 @@ export default async function EditPage({ params }: EditPageProps) {
                   defaultValue={annonce.surface}
                   required
                   className="w-full px-4 py-2.5 rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-ring text-sm"
-                />
+                aria-describedby="surface-error" />
+                <EditFieldError name="surface" />
               </div>
 
               <div className="space-y-2">
@@ -188,7 +195,8 @@ export default async function EditPage({ params }: EditPageProps) {
                   defaultValue={annonce.chambres}
                   required
                   className="w-full px-4 py-2.5 rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-ring text-sm"
-                />
+                aria-describedby="chambres-error" />
+                <EditFieldError name="chambres" />
               </div>
 
               <div className="space-y-2">
@@ -202,7 +210,8 @@ export default async function EditPage({ params }: EditPageProps) {
                   defaultValue={defaultDateStr}
                   required
                   className="w-full px-4 py-2.5 rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-ring text-sm"
-                />
+                aria-describedby="dateDisponibilite-error" />
+                <EditFieldError name="dateDisponibilite" />
               </div>
             </div>
 
@@ -218,7 +227,8 @@ export default async function EditPage({ params }: EditPageProps) {
                 defaultValue={annonce.description}
                 required
                 className="w-full px-4 py-2.5 rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-ring text-sm leading-relaxed"
-              />
+              aria-describedby="description-error" />
+              <EditFieldError name="description" />
             </div>
 
             {/* GESTION DES PHOTOS */}
@@ -258,6 +268,7 @@ export default async function EditPage({ params }: EditPageProps) {
                 </div>
               )}
 
+              <EditFieldError name="deletePhotos" />
               {/* Téléversement de nouvelles photos */}
               <div className="space-y-2">
                 <label htmlFor="newPhotos" className="text-xs font-semibold text-foreground flex items-center gap-2">
@@ -269,9 +280,10 @@ export default async function EditPage({ params }: EditPageProps) {
                   id="newPhotos"
                   name="newPhotos"
                   multiple
-                  accept="image/*"
+                  accept="image/jpeg,image/png,image/webp"
                   className="w-full text-xs text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-secondary file:text-secondary-foreground hover:file:opacity-90 cursor-pointer border border-input rounded-lg p-1.5"
-                />
+                aria-describedby="newPhotos-error" />
+                <EditFieldError name="newPhotos" />
               </div>
             </div>
 
@@ -280,7 +292,7 @@ export default async function EditPage({ params }: EditPageProps) {
           {/* Boutons d'action */}
           <div className="flex items-center justify-end gap-4">
             <Link
-              href={`/agent/details/${annonce.id}`}
+              href={`/agent/annonces/${annonce.id}`}
               className="px-5 py-2.5 rounded-[var(--radius)] border border-border text-foreground hover:bg-muted font-medium text-sm transition-colors"
             >
               Annuler
@@ -294,7 +306,7 @@ export default async function EditPage({ params }: EditPageProps) {
               Enregistrer les modifications
             </button>
           </div>
-        </form>
+        </EditValidationForm>
       </main>
     </div>
   )

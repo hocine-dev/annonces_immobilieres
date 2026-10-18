@@ -1,57 +1,248 @@
-"use client";
+import Link from "next/link"
+import Image from "next/image"
+import { headers } from "next/headers"
+import { redirect } from "next/navigation"
+import {
+  ArrowLeft,
+  ArrowRight,
+  Building2,
+  MapPin,
+  Pencil,
+  Plus,
+} from "lucide-react"
 
-import { useState } from "react";
+import { Navbar } from "@/components/NavBar"
+import { Footer } from "@/components/Footer"
+import { auth } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
 
-const sections = ["Vue d’ensemble", "Annonces", "Agents", "Utilisateurs", "Demandes"];
+export const dynamic = "force-dynamic"
 
-export default function AgentPage() {
-  const [active, setActive] = useState(sections[0]);
+export default async function AgentPage() {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  })
+
+  if (!session?.user) {
+    redirect("/login")
+  }
+
+  if (session.user.role !== "AGENT") {
+    redirect(
+      session.user.role === "ADMIN"
+        ? "/admin/dashboard"
+        : "/dashboard"
+    )
+  }
+
+  const annonces = await prisma.annonce.findMany({
+    where: {
+      auteurId: session.user.id,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+    select: {
+      id: true,
+      titre: true,
+      ville: true,
+      type: true,
+      statut: true,
+      etat: true,
+      prix: true,
+      photos: {
+        take: 1,
+        select: {
+          url: true,
+        },
+      },
+    },
+  })
+
+  const publiees = annonces.filter(
+    (annonce) => annonce.statut === "PUBLIE"
+  ).length
+
+  const brouillons = annonces.filter(
+    (annonce) => annonce.statut === "BROUILLON"
+  ).length
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900">
-      <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-slate-200 bg-white p-6 lg:flex">
-        <div className="mb-10 flex items-center gap-3 text-xl font-bold">
-          <span className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-600 text-white">⌂</span>
-          <span>immo<span className="text-indigo-600">admin</span></span>
-        </div>
-        <p className="mb-3 px-3 text-xs font-semibold uppercase tracking-wider text-slate-400">Administration</p>
-        <nav className="space-y-1">
-          {sections.map((section, index) => (
-            <button key={section} onClick={() => setActive(section)} className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium ${active === section ? "bg-indigo-50 text-indigo-700" : "text-slate-500 hover:bg-slate-50"}`}>
-              <span className="w-5 text-center">{["▦", "⌂", "♙", "♧", "▤"][index]}</span>{section}
-            </button>
-          ))}
-        </nav>
-        <div className="mt-auto rounded-xl bg-slate-50 p-4">
-          <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-full bg-indigo-100 text-sm font-semibold text-indigo-700">AD</span><div><p className="text-sm font-semibold">Administrateur</p><p className="text-xs text-slate-500">Espace de gestion</p></div></div>
-          <button className="mt-4 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600">Se déconnecter</button>
-        </div>
-      </aside>
+    <div className="flex min-h-screen flex-col bg-background text-foreground">
+      <Navbar />
 
-      <section className="lg:pl-64">
-        <header className="flex h-[76px] items-center justify-between border-b border-slate-200 bg-white px-5 sm:px-8">
-          <div><p className="text-xs text-slate-400">Administration / {active}</p><h1 className="font-semibold">{active}</h1></div>
-          <div className="flex items-center gap-4"><button aria-label="Notifications" className="text-xl text-slate-500">♧</button><span className="grid h-10 w-10 place-items-center rounded-full bg-indigo-100 text-sm font-semibold text-indigo-700">AD</span></div>
-        </header>
+      <main className="flex-1">
+        <section className="bg-navy py-12 text-white">
+          <div className="mx-auto max-w-7xl px-6 lg:px-8">
+            <Link
+              href="/agent/dashboard"
+              className="inline-flex items-center gap-2 text-sm text-white/70 hover:text-white"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Retour au tableau de bord
+            </Link>
 
-        <div className="mx-auto max-w-7xl space-y-7 p-5 sm:p-8">
-          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-            <div><p className="text-sm text-slate-500">Bienvenue dans votre espace de gestion</p><h2 className="mt-1 text-2xl font-bold">Tableau de bord</h2></div>
-            <button className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700">＋ Nouvelle annonce</button>
+            <div className="mt-8 flex flex-wrap items-end justify-between gap-6">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-widest text-gold">
+                  Espace agent
+                </p>
+
+                <h1 className="mt-2 font-display text-3xl font-bold md:text-4xl">
+                  Mes annonces
+                </h1>
+
+                <p className="mt-3 text-white/70">
+                  Consultez et gérez vos biens immobiliers.
+                </p>
+              </div>
+
+              <Link
+                href="/annonces/nouvelle"
+                className="inline-flex items-center gap-2 rounded-xl bg-gold px-5 py-3 font-semibold text-navy transition-opacity hover:opacity-90"
+              >
+                <Plus className="h-5 w-5" />
+                Nouvelle annonce
+              </Link>
+            </div>
           </div>
+        </section>
 
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {[{ title: "Annonces publiées", icon: "⌂", tone: "bg-indigo-50 text-indigo-600" }, { title: "Agents actifs", icon: "♙", tone: "bg-emerald-50 text-emerald-600" }, { title: "Demandes reçues", icon: "▤", tone: "bg-amber-50 text-amber-600" }, { title: "Utilisateurs", icon: "♧", tone: "bg-rose-50 text-rose-600" }].map((card) => (
-              <article key={card.title} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><div className="flex items-center justify-between"><span className="text-sm font-medium text-slate-500">{card.title}</span><span className={`grid h-10 w-10 place-items-center rounded-xl text-lg ${card.tone}`}>{card.icon}</span></div><p className="mt-5 text-3xl font-bold">—</p><p className="mt-1 text-xs text-slate-400">Aucune donnée disponible</p></article>
+        <div className="mx-auto max-w-7xl space-y-8 px-6 py-10 lg:px-8">
+          <section className="grid gap-4 sm:grid-cols-3">
+            {[
+              { label: "Total", value: annonces.length },
+              { label: "Publiées", value: publiees },
+              { label: "Brouillons", value: brouillons },
+            ].map((stat) => (
+              <div
+                key={stat.label}
+                className="rounded-2xl border border-border bg-card p-6 shadow-sm"
+              >
+                <p className="text-sm text-muted-foreground">
+                  {stat.label}
+                </p>
+                <p className="mt-2 font-display text-3xl font-bold">
+                  {stat.value}
+                </p>
+              </div>
             ))}
-          </div>
+          </section>
 
-          <div className="grid gap-5 xl:grid-cols-3">
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm xl:col-span-2"><h3 className="font-semibold">Activité récente</h3><p className="mt-1 text-sm text-slate-500">Suivez les dernières actions sur la plateforme</p><div className="mt-6 grid min-h-56 place-items-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-center"><div><span className="mb-3 block text-2xl text-slate-300">▤</span><p className="text-sm font-medium text-slate-600">Aucune activité pour le moment</p><p className="mt-1 text-xs text-slate-400">Les nouvelles activités apparaîtront ici.</p></div></div></section>
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h3 className="font-semibold">Actions rapides</h3><p className="mt-1 text-sm text-slate-500">Accédez aux tâches courantes</p><div className="mt-5 space-y-3">{["Gérer les annonces", "Ajouter un agent", "Voir les demandes"].map((action, index) => <button key={action} onClick={() => setActive(["Annonces", "Agents", "Demandes"][index])} className="flex w-full items-center justify-between rounded-xl border border-slate-200 px-4 py-3 text-left text-sm font-medium text-slate-700 hover:border-indigo-200 hover:bg-indigo-50">{action}<span className="text-slate-400">→</span></button>)}</div></section>
-          </div>
+          {annonces.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-border bg-card px-6 py-16 text-center">
+              <Building2 className="mx-auto h-12 w-12 text-muted-foreground" />
+
+              <h2 className="mt-5 text-xl font-semibold">
+                Aucune annonce pour le moment
+              </h2>
+
+              <p className="mt-2 text-muted-foreground">
+                Créez votre première annonce immobilière.
+              </p>
+
+              <Link
+                href="/annonces/nouvelle"
+                className="mt-6 inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 font-semibold text-primary-foreground"
+              >
+                <Plus className="h-4 w-4" />
+                Créer une annonce
+              </Link>
+            </div>
+          ) : (
+            <section className="space-y-5">
+              <h2 className="font-display text-xl font-semibold">
+                Toutes mes annonces ({annonces.length})
+              </h2>
+
+              <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+                {annonces.map((annonce) => (
+                  <article
+                    key={annonce.id}
+                    className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-shadow hover:shadow-md"
+                  >
+                    <div className="relative h-48 bg-muted">
+                      {annonce.photos[0] ? (
+                        <Image
+                          src={annonce.photos[0].url}
+                          alt={annonce.titre}
+                          fill
+                          sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
+                          className="object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center">
+                          <Building2 className="h-12 w-12 text-muted-foreground" />
+                        </div>
+                      )}
+
+                      <span
+                        className={`absolute right-3 top-3 rounded-full px-3 py-1 text-xs font-bold shadow-sm ${
+                          annonce.statut === "PUBLIE"
+                            ? "bg-emerald-100 text-emerald-800"
+                            : "bg-amber-100 text-amber-800"
+                        }`}
+                      >
+                        {annonce.statut === "PUBLIE"
+                          ? "Publiée"
+                          : "Brouillon"}
+                      </span>
+                    </div>
+
+                    <div className="space-y-4 p-5">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wider text-primary">
+                          {annonce.type === "VENTE"
+                            ? "Vente"
+                            : "Location"}
+                        </p>
+
+                        <h3 className="mt-2 line-clamp-2 font-display text-lg font-semibold">
+                          {annonce.titre}
+                        </h3>
+
+                        <p className="mt-2 flex items-center gap-1 text-sm text-muted-foreground">
+                          <MapPin className="h-4 w-4" />
+                          {annonce.ville}
+                        </p>
+                      </div>
+
+                      <p className="text-xl font-bold">
+                        {Number(annonce.prix).toLocaleString("fr-FR")} €
+                        {annonce.type === "LOCATION" && (
+                          <span className="text-sm font-normal text-muted-foreground">
+                            /mois
+                          </span>
+                        )}
+                      </p>
+
+                      <div className="flex gap-3 border-t border-border pt-4">
+                        <Link
+                          href={`/agent/annonces/${annonce.id}`}
+                          className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-border px-3 py-2.5 text-sm font-semibold hover:bg-muted"
+                        >
+                          <ArrowRight className="h-4 w-4" />
+                          Gérer
+                        </Link>
+
+                        <Link
+                          href={`/agent/annonces/${annonce.id}/edit`}
+                          className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90"
+                        >
+                          <Pencil className="h-4 w-4" />
+                          Modifier
+                        </Link>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
+          )}
         </div>
-      </section>
-    </main>
-  );
+      </main>
+
+      <Footer />
+    </div>
+  )
 }
