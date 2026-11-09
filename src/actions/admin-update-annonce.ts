@@ -1,10 +1,6 @@
 
 "use server"
 
-import { randomUUID } from "node:crypto"
-import { mkdir, rename, unlink, writeFile } from "node:fs/promises"
-import path from "node:path"
-
 import { MAX_PHOTOS, photosSchema } from "@/lib/validators/photo"
 import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
@@ -12,6 +8,10 @@ import { z } from "zod"
 
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import {
+  uploadAnnoncePhoto,
+  deleteAnnoncePhoto,
+} from "@/lib/photo-storage"
 import { createAnnonceSchema } from "@/lib/validators/annonce"
 import type { CreateAnnonceState } from "@/actions/annonce"
 
@@ -167,99 +167,22 @@ export async function adminUpdateAnnonce(
     }
   }
 
-  const directory = path.join(
-    process.cwd(),
-    "public",
-    "annonces",
-    "uploads",
-  )
+  // 8. PHOTOS : SUPABASE STORAGE
 
-  const extensions: Record<string, string> = {
-    "image/jpeg": "jpg",
-    "image/png": "png",
-    "image/webp": "webp",
-  }
-
-  const writtenFiles: string[] = []
-  const newUrls: string[] = []
+  const uploadedUrls: string[] = []
 
   const deletedPhotos = existing.photos.filter(
     (photo) => removeIds.includes(photo.id),
   )
 
-  const trashDirectory = path.join(
-    process.cwd(),
-    ".photo-trash",
-  )
-
-  const movedFiles: {
-    original: string
-    staged: string
-  }[] = []
-
-  // 8. Enregistrement des nouvelles photos
-  // puis mise à jour atomique des données Prisma.
   try {
-    // Déplacer les fichiers concernés hors du dossier public.
-    if (deletedPhotos.length > 0) {
-      await mkdir(trashDirectory, { recursive: true })
-
-      for (const photo of deletedPhotos) {
-        const otherUses = await prisma.photo.count({
-          where: { url: photo.url, annonceId: { not: existing.id } },
-        })
-        if (otherUses > 0) continue
-        const prefix = "/annonces/uploads/"
-        const filename = photo.url.startsWith(prefix)
-          ? photo.url.slice(prefix.length)
-          : ""
-
-        if (!/^[a-f0-9-]+\.(jpg|png|webp)$/.test(filename)) {
-          continue
-        }
-
-        const original = path.join(directory, filename)
-        const staged = path.join(
-          trashDirectory,
-          `${randomUUID()}-${filename}`,
-        )
-
-        try {
-          await rename(original, staged)
-          movedFiles.push({ original, staged })
-        } catch (error) {
-          if (
-            (error as NodeJS.ErrnoException).code !== "ENOENT"
-          ) {
-            throw error
-          }
-        }
-      }
-    }
-
-    if (newPhotos.length > 0) {
-      await mkdir(directory, { recursive: true })
-    }
-
+    // 1. Envoyer les nouvelles photos dans Supabase Storage.
     for (const photo of newPhotos) {
-      const extension = extensions[photo.type]
-
-      if (!extension) {
-        throw new Error("Format de photo invalide")
-      }
-
-      const filename = `${randomUUID()}.${extension}`
-      const absolutePath = path.join(directory, filename)
-
-      await writeFile(
-        absolutePath,
-        Buffer.from(await photo.arrayBuffer()),
-      )
-
-      writtenFiles.push(absolutePath)
-      newUrls.push(`/annonces/uploads/${filename}`)
+      const url = await uploadAnnoncePhoto(photo)
+      uploadedUrls.push(url)
     }
 
+    // 2. Enregistrer les modifications dans PostgreSQL.
     await prisma.annonce.update({
       where: { id: existing.id },
       data: {
@@ -273,13 +196,13 @@ export async function adminUpdateAnnonce(
         surface: result.data.surface,
         chambres: result.data.chambres,
         photos:
-          removeIds.length || newUrls.length
+          removeIds.length || uploadedUrls.length
             ? {
                 deleteMany: removeIds.length
                   ? { id: { in: removeIds } }
                   : undefined,
-                create: newUrls.length
-                  ? newUrls.map((url) => ({ url }))
+                create: uploadedUrls.length
+                  ? uploadedUrls.map((url) => ({ url }))
                   : undefined,
               }
             : undefined,
@@ -288,26 +211,17 @@ export async function adminUpdateAnnonce(
   } catch (error) {
     console.error("Erreur de modification d'annonce :", error)
 
-    // Restaurer les photos si la sauvegarde a échoué.
-    const restoration = await Promise.allSettled(
-      movedFiles.map(({ original, staged }) =>
-        rename(staged, original),
-      ),
+    // En cas d'échec, nettoyer les nouveaux fichiers.
+    // Les anciennes photos restent intactes.
+    const cleanup = await Promise.allSettled(
+      uploadedUrls.map((url) => deleteAnnoncePhoto(url)),
     )
 
-    restoration.forEach((result, index) => {
+    cleanup.forEach((result) => {
       if (result.status === "rejected") {
-        console.error(
-          "Restauration de photo échouée :",
-          movedFiles[index].staged,
-          result.reason,
-        )
+        console.error("Échec du nettoyage Supabase :", result.reason)
       }
     })
-
-    await Promise.allSettled(
-      writtenFiles.map((file) => unlink(file)),
-    )
 
     return {
       success: false,
@@ -316,20 +230,23 @@ export async function adminUpdateAnnonce(
     }
   }
 
-  // Nettoyage définitif après confirmation en base.
-  const cleanup = await Promise.allSettled(
-    movedFiles.map(({ staged }) => unlink(staged)),
-  )
+  // 3. Après la mise à jour Prisma, supprimer les fichiers
+  // retirés qui ne sont utilisés par aucune autre annonce.
+  for (const photo of deletedPhotos) {
+    try {
+      const otherUses = await prisma.photo.count({
+        where: { url: photo.url },
+      })
 
-  cleanup.forEach((result, index) => {
-    if (result.status === "rejected") {
-      console.error(
-        "Nettoyage de photo à reprendre :",
-        movedFiles[index].staged,
-        result.reason,
-      )
+      if (otherUses === 0) {
+        await deleteAnnoncePhoto(photo.url)
+      }
+    } catch (error) {
+      // La modification en base a déjà réussi.
+      // On journalise l'erreur sans annuler l'annonce.
+      console.error("Nettoyage de photo à reprendre :", error)
     }
-  })
+  }
 
   // 8. Actualisation des pages
   revalidatePath("/")

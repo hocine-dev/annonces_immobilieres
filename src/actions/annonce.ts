@@ -1,14 +1,14 @@
 "use server"
 
-import { randomUUID } from "node:crypto"
-import { mkdir, unlink, writeFile } from "node:fs/promises"
-import path from "node:path"
-
 import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
 
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import {
+  uploadAnnoncePhoto,
+  deleteAnnoncePhoto,
+} from "@/lib/photo-storage"
 import { createAnnonceSchema } from "@/lib/validators/annonce"
 import { photosSchema } from "@/lib/validators/photo"
 
@@ -110,68 +110,26 @@ export async function createAnnonce(
     }
   }
 
-  // 4. SAUVEGARDE DES PHOTOS
-  const uploadDirectory = path.join(
-    process.cwd(),
-    "public",
-    "annonces",
-    "uploads",
-  )
+  // 4. SAUVEGARDE DES PHOTOS DANS SUPABASE STORAGE
 
-  await mkdir(uploadDirectory, {
-    recursive: true,
-  })
-
-  const extensionByMimeType: Record<string, string> = {
-    "image/jpeg": "jpg",
-    "image/png": "png",
-    "image/webp": "webp",
-  }
-
-  const writtenFiles: string[] = []
-  const photoUrls: string[] = []
+  const uploadedUrls: string[] = []
 
   try {
     for (const photo of photoFiles) {
-      const extension = extensionByMimeType[photo.type]
-
-      if (!extension) {
-        throw new Error("Type d'image non autorisé")
-      }
-
-      const filename = `${randomUUID()}.${extension}`
-
-      const absolutePath = path.join(
-        uploadDirectory,
-        filename,
-      )
-
-      const buffer = Buffer.from(
-        await photo.arrayBuffer(),
-      )
-
-      await writeFile(
-        absolutePath,
-        buffer,
-      )
-
-      writtenFiles.push(absolutePath)
-
-      photoUrls.push(
-        `/annonces/uploads/${filename}`,
-      )
+      const url = await uploadAnnoncePhoto(photo)
+      uploadedUrls.push(url)
     }
-  } catch {
+  } catch (error) {
+    console.error("Erreur upload Supabase :", error)
+
+    // Nettoyer les photos déjà envoyées si un upload échoue.
     await Promise.allSettled(
-      writtenFiles.map((filename) =>
-        unlink(filename),
-      ),
+      uploadedUrls.map((url) => deleteAnnoncePhoto(url)),
     )
 
     return {
       success: false,
-      message:
-        "Une erreur est survenue pendant l'enregistrement des photos.",
+      message: "Une erreur est survenue pendant l'enregistrement des photos.",
       values,
     }
   }
@@ -195,9 +153,9 @@ export async function createAnnonce(
         auteurId: session.user.id,
 
         photos:
-          photoUrls.length > 0
+          uploadedUrls.length > 0
             ? {
-                create: photoUrls.map((url) => ({
+                create: uploadedUrls.map((url) => ({
                   url,
                 })),
               }
@@ -206,9 +164,7 @@ export async function createAnnonce(
     })
   } catch {
     await Promise.allSettled(
-      writtenFiles.map((filename) =>
-        unlink(filename),
-      ),
+      uploadedUrls.map((url) => deleteAnnoncePhoto(url)),
     )
 
     return {

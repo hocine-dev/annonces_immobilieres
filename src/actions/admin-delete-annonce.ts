@@ -1,9 +1,4 @@
-
 "use server"
-
-import { randomUUID } from "node:crypto"
-import { mkdir, rename, unlink } from "node:fs/promises"
-import path from "node:path"
 
 import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
@@ -11,36 +6,11 @@ import { redirect } from "next/navigation"
 
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { deleteAnnoncePhoto } from "@/lib/photo-storage"
 import { annonceIdSchema } from "@/lib/validators/interaction-annonce"
 
 export type AdminDeleteState = {
   error: string
-}
-
-type StagedFile = {
-  original: string
-  staged: string
-}
-
-const uploadPattern =
-  /^\/annonces\/uploads\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png|webp)$/i
-
-async function restoreFiles(files: StagedFile[]) {
-  const results = await Promise.allSettled(
-    files.map(({ original, staged }) =>
-      rename(staged, original),
-    ),
-  )
-
-  results.forEach((result, index) => {
-    if (result.status === "rejected") {
-      console.error(
-        "Impossible de restaurer une photo :",
-        files[index].staged,
-        result.reason,
-      )
-    }
-  })
 }
 
 export async function adminDeleteAnnonce(
@@ -56,12 +26,12 @@ export async function adminDeleteAnnonce(
     return { error: "Vous devez être connecté." }
   }
 
-  // 2. Autorisation
+  // 2. Autorisation : administrateur uniquement
   if (session.user.role !== "ADMIN") {
     return { error: "Action non autorisée." }
   }
 
-  // 3. Validation
+  // 3. Validation de l'identifiant
   const parsedId = annonceIdSchema.safeParse(
     formData.get("annonceId"),
   )
@@ -70,7 +40,7 @@ export async function adminDeleteAnnonce(
     return { error: "Annonce invalide." }
   }
 
-  // 4. Récupération des photos
+  // 4. Récupérer les photos avant la suppression
   const annonce = await prisma.annonce.findUnique({
     where: { id: parsedId.data },
     select: {
@@ -85,94 +55,45 @@ export async function adminDeleteAnnonce(
     return { error: "Annonce introuvable." }
   }
 
-  const publicDirectory = path.join(
-    process.cwd(),
-    "public",
-  )
-
-  const trashDirectory = path.join(
-    process.cwd(),
-    ".photo-trash",
-  )
-
-  const stagedFiles: StagedFile[] = []
-
-  // 5. Préparer les fichiers uploadés pour suppression
+  // 5. Supprimer l'annonce en base de données
   try {
-    for (const photo of annonce.photos) {
-      // Ne supprimer physiquement que les uploads UUID, jamais les images du seed.
-      if (!uploadPattern.test(photo.url)) {
-        continue
-      }
-
-      // Une photo partagée par une autre annonce doit rester sur le disque.
-      const otherUses = await prisma.photo.count({
-        where: { url: photo.url, annonceId: { not: annonce.id } },
-      })
-      if (otherUses > 0) continue
-
-      const original = path.join(
-        publicDirectory,
-        photo.url.slice(1),
-      )
-
-      const staged = path.join(
-        trashDirectory,
-        `${randomUUID()}-${path.basename(original)}`,
-      )
-
-      await mkdir(trashDirectory, {
-        recursive: true,
-      })
-
-      try {
-        await rename(original, staged)
-        stagedFiles.push({ original, staged })
-      } catch (error) {
-        // Le fichier peut déjà être absent du disque.
-        if (
-          (error as NodeJS.ErrnoException).code !== "ENOENT"
-        ) {
-          throw error
-        }
-      }
-    }
-
-    // 6. Suppression en base de données.
-    // Les relations Photo, Question et Favori
-    // sont supprimées par cascade.
     await prisma.annonce.delete({
       where: { id: annonce.id },
     })
+    // Les relations Photo, Question et Favori
+    // restent supprimées par cascade.
   } catch (error) {
     console.error("Échec de suppression d'annonce :", error)
-
-    await restoreFiles(stagedFiles)
 
     return {
       error: "Impossible de supprimer cette annonce.",
     }
   }
 
-  // 7. Effacement définitif des fichiers préparés
-  const cleanup = await Promise.allSettled(
-    stagedFiles.map(({ staged }) => unlink(staged)),
-  )
-
+  // 6. Supprimer les photos Supabase devenues inutilisées
   let cleanupFailed = false
 
-  cleanup.forEach((result, index) => {
-    if (result.status === "rejected") {
-      cleanupFailed = true
-      console.error(
-        "Nettoyage de photo échoué :",
-        stagedFiles[index].staged,
-        result.reason,
-      )
-    }
-  })
+  const urls = new Set(
+    annonce.photos.map((photo) => photo.url),
+  )
 
-  // 8. Actualisation des pages
+  for (const url of urls) {
+    try {
+      // Une autre annonce peut utiliser la même photo.
+      const references = await prisma.photo.count({
+        where: { url },
+      })
+
+      if (references === 0) {
+        await deleteAnnoncePhoto(url)
+      }
+    } catch (error) {
+      cleanupFailed = true
+      console.error("Nettoyage photo échoué :", error)
+    }
+  }
+
+  // 7. Actualisation des pages
   revalidatePath("/")
   revalidatePath("/annonces")
   revalidatePath(`/annonces/${annonce.id}`)
@@ -181,7 +102,7 @@ export async function adminDeleteAnnonce(
   revalidatePath("/agent/dashboard")
   revalidatePath("/dashboard")
 
-  // Retour à la liste avec confirmation.
+  // 8. Redirection
   redirect(
     cleanupFailed
       ? "/admin/annonces?deleted=1&cleanup=1"

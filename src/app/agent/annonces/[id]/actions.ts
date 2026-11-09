@@ -1,9 +1,5 @@
 "use server"
 
-import { randomUUID } from "node:crypto"
-import { mkdir, rename, unlink, writeFile } from "node:fs/promises"
-import path from "node:path"
-
 import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
 import { notFound, redirect } from "next/navigation"
@@ -11,6 +7,10 @@ import { z } from "zod"
 
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import {
+  uploadAnnoncePhoto,
+  deleteAnnoncePhoto,
+} from "@/lib/photo-storage"
 
 const idSchema = z.string().min(1).max(128)
 const statutSchema = z.enum(["BROUILLON", "PUBLIE"])
@@ -42,21 +42,39 @@ type AnnonceScope = {
 
 // Authentification -> autorisation -> validation du formulaire (Zod).
 async function authorizedAnnonce(annonceId: string): Promise<AnnonceScope> {
-  const session = await auth.api.getSession({ headers: await headers() })
+
+  // Récupérer et vérifier la session  à partir des en-têtes HTTP via Better Auth.
+
+  const session = await auth.api.getSession(
+    { headers: await headers() }
+  )
+  // Si la session est absente ou ne contient aucun utilisateur, rediriger vers la page de connexion.
   if (!session?.user) redirect("/login")
 
+  // Vérifier si l'utilisateur est administrateur.
+
   const admin = session.user.role === "ADMIN"
+
+  // Refuser l'accès si l'utilisateur n'est ni AGENT ni ADMIN (erreur 404).
+
   if (session.user.role !== "AGENT" && !admin) notFound()
+
+  // Valider l'identifiant de l'annonce avec Zod et retourner une erreur 404 s'il est invalide.
 
   const parsedId = idSchema.safeParse(annonceId)
   if (!parsedId.success) notFound()
+
+  // Rechercher l'annonce par son identifiant validé et récupérer uniquement les champs nécessaires.
 
   const annonce = await prisma.annonce.findUnique({
     where: { id: parsedId.data },
     select: { id: true, auteurId: true, type: true },
   })
+  // Retourner une erreur 404 si l'annonce n'existe pas dans la BDD
+  // ou si l'utilisateur n'est pas ADMIN et  il est AGENT mais il n'est pas propriétaire de l'annonce.
   if (!annonce || (!admin && annonce.auteurId !== session.user.id)) notFound()
 
+  // Retourner les informations de l'annonce et de l'utilisateur connecté
   return {
     id: annonce.id,
     auteurId: annonce.auteurId,
@@ -66,12 +84,17 @@ async function authorizedAnnonce(annonceId: string): Promise<AnnonceScope> {
   }
 }
 
-// Le WHERE lie l'écriture aux droits de l'agent, même après le contrôle initial.
+// Définir la condition WHERE : si ADMIN, vérifier uniquement l'ID de l'annonce.
+// Si AGENT, vérifier l'ID de l'annonce et que son auteurId correspond à l'ID de l'agent connecté.
 function ownedWhere(scope: AnnonceScope) {
   return scope.admin
     ? { id: scope.id }
     : { id: scope.id, auteurId: scope.actorId }
 }
+
+// Invalider le cache des pages concernées après une modification
+// Après une modification, nous invalidons le cache des pages concernées
+// pour qu'elles affichent les nouvelles données lors de leur prochain chargement.
 
 function refresh(annonceId: string) {
   revalidatePath("/")
@@ -83,107 +106,103 @@ function refresh(annonceId: string) {
   revalidatePath("/admin/annonces")
 }
 
+
+// fonction qui permet de modifier le statut d'une annonce (publier, brouillon)
+
 export async function updateStatutPublication(annonceId: string, formData: FormData) {
+  // Récupérer le scope de l'annonce autorisée (l'authentification et l'autorisation et validation zod
+  // de l'id de l'annonce sont effectuées par authorizedAnnonce).
   const scope = await authorizedAnnonce(annonceId)
+
+  // Récupérer et valider le statut depuis le formulaire.
   const statut = statutSchema.parse(formData.get("statut"))
+
+  // Persister la modification dans la BDD avec la condition WHERE retournée par ownedWhere.
   await prisma.annonce.update({ where: ownedWhere(scope), data: { statut } })
+
+  // Appeler refresh pour exécuter revalidatePath sur les pages concernées.
   refresh(annonceId)
+
+  // Rediriger vers la page de l'annonce avec un paramètre
+  // permettant d'afficher un toast de confirmation.
+
   redirect(`/agent/annonces/${annonceId}?toast=statut_ok`)
 }
 
+// Fonction permettant de mettre à jour l'état d'une annonce (vendu, loué ou disponible).
 export async function updateEtatBien(annonceId: string, formData: FormData) {
+
+  // Récupérer le scope de l'annonce autorisée.
+  // L'authentification, l'autorisation et la validation Zod de l'ID
+  // de l'annonce sont effectuées par authorizedAnnonce.
   const scope = await authorizedAnnonce(annonceId)
+
+  // Récupérer et valider l'état demandé depuis le formulaire avec Zod.
   const etat = etatSchema.parse(formData.get("etat"))
 
+  // Empêcher les états incompatibles avec le type de transaction :
+  // une annonce en vente ne peut pas être louée,
+  // et une annonce en location ne peut pas être vendue.
   if ((scope.type === "VENTE" && etat === "LOUE") ||
-      (scope.type === "LOCATION" && etat === "VENDU")) {
+    (scope.type === "LOCATION" && etat === "VENDU")) {
     throw new Error("État incompatible avec le type de transaction.")
   }
 
+  // Persister la modification dans la BDD avec la condition WHERE retournée par ownedWhere.
   await prisma.annonce.update({ where: ownedWhere(scope), data: { etat } })
+
+  // Appeler refresh pour exécuter revalidatePath sur les pages concernées.
   refresh(annonceId)
+
+  // Rediriger vers la page de l'annonce avec un paramètre
+  // permettant d'afficher un toast de confirmation.
   redirect(`/agent/annonces/${annonceId}?toast=etat_ok`)
 }
 
-const uploadDir = path.join(process.cwd(), "public", "annonces", "uploads")
-const trashDir = path.join(uploadDir, ".trash")
+// ####### traitement des photos ########
 
-// Pas de suppression physique des images du seed, des anciens chemins ou de hero.jpg.
-const generatedUpload = /^\/annonces\/uploads\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png|webp)$/i
-
-type StagedFile = { original: string; staged: string }
-
-async function restoreStaged(items: StagedFile[]) {
-  for (const item of [...items].reverse()) {
+async function cleanupUnusedPhotos(urls: string[]) {
+  for (const url of new Set(urls)) {
     try {
-      await rename(item.staged, item.original)
-    } catch (error) {
-      console.error("Impossible de restaurer une photo :", item.original, error)
-    }
-  }
-}
-
-async function permanentlyRemove(items: StagedFile[]) {
-  for (const item of items) {
-    try {
-      await unlink(item.staged)
-    } catch (error) {
-      console.error("Photo en attente de nettoyage :", item.staged, error)
-    }
-  }
-}
-
-// Les références utilisées ailleurs et les images du seed ne sont jamais déplacées.
-async function stageRemovable(urls: string[], annonceId: string): Promise<StagedFile[]> {
-  const staged: StagedFile[] = []
-  try {
-    for (const url of new Set(urls)) {
-      if (!generatedUpload.test(url)) continue
-      const otherUses = await prisma.photo.count({
-        where: { url, annonceId: { not: annonceId } },
+      // Ne jamais supprimer une photo encore référencée.
+      const references = await prisma.photo.count({
+        where: { url },
       })
-      if (otherUses > 0) continue
 
-      const original = path.join(uploadDir, path.basename(url))
-      const destination = path.join(trashDir, `${randomUUID()}-${path.basename(url)}`)
-      await mkdir(trashDir, { recursive: true })
-      try {
-        await rename(original, destination)
-        staged.push({ original, staged: destination })
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
+      if (references === 0) {
+        await deleteAnnoncePhoto(url)
       }
+    } catch (error) {
+      // L'opération en base a déjà réussi.
+      console.error("Nettoyage photo Supabase échoué :", error)
     }
-    return staged
-  } catch (error) {
-    await restoreStaged(staged)
-    throw error
   }
 }
 
 export async function deleteAnnonce(annonceId: string) {
   const scope = await authorizedAnnonce(annonceId)
+
   const photos = await prisma.photo.findMany({
     where: { annonceId: scope.id },
     select: { url: true },
   })
 
-  const staged = await stageRemovable(photos.map((photo) => photo.url), scope.id)
-  try {
-    // Prisma supprime aussi les Photo, Favori et Question par cascade.
-    await prisma.annonce.delete({ where: ownedWhere(scope) })
-  } catch (error) {
-    await restoreStaged(staged)
-    throw error
-  }
-  await permanentlyRemove(staged)
+  // Suppression de l'annonce et des références associées.
+  await prisma.annonce.delete({
+    where: ownedWhere(scope),
+  })
+
+  // Supprimer les fichiers Supabase devenus inutilisés.
+  await cleanupUnusedPhotos(photos.map((photo) => photo.url))
+
   refresh(annonceId)
   redirect("/agent/dashboard?toast=delete_ok")
 }
 
-type NewPhoto = { url: string; buffer: Buffer }
 
-// Signature réelle du contenu + MIME ; l'extension envoyée par le navigateur ne suffit pas.
+// Détecter le format réel d'une image (JPG, PNG ou WebP) à partir
+// de sa signature binaire, sans se fier uniquement à son extension.
+
 function detectImageExtension(buffer: Buffer): "jpg" | "png" | "webp" | null {
   if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return "jpg"
   if (buffer.length >= 8 && buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) return "png"
@@ -191,11 +210,12 @@ function detectImageExtension(buffer: Buffer): "jpg" | "png" | "webp" | null {
   return null
 }
 
-async function validateNewPhotos(formData: FormData): Promise<NewPhoto[]> {
+// Récupérer et valider les nouvelles photos du formulaire (nombre, taille et format).
+async function validateNewPhotos(formData: FormData): Promise<File[]> {
   const entries = formData.getAll("newPhotos").filter((item) => !(typeof item === "string" && item.length === 0))
   if (entries.length > 10) throw new Error("10 nouvelles photos maximum.")
 
-  const result: NewPhoto[] = []
+  const result: File[] = []
   let totalBytes = 0
   for (const item of entries) {
     if (!(item instanceof File)) throw new Error("Fichier photo invalide.")
@@ -210,14 +230,26 @@ async function validateNewPhotos(formData: FormData): Promise<NewPhoto[]> {
     if (!extension || item.type !== mimeForExtension[extension]) {
       throw new Error("Format de photo interdit : JPEG, PNG ou WebP uniquement.")
     }
-    result.push({ url: `/annonces/uploads/${randomUUID()}.${extension}`, buffer })
+    result.push(item)
   }
   return result
 }
 
+// ###########  updateAnnonce ##########
+
+
+// Mettre à jour les informations et les photos d'une annonce autorisée,
+// en garantissant l'atomicité des modifications en BDD et en prévoyant
+// la restauration des fichiers en cas d'échec.
 export async function updateAnnonce(annonceId: string, formData: FormData) {
+
+  // Récupérer le scope de l'annonce autorisée.
+  // L'authentification, l'autorisation et la validation Zod de l'ID
+  // de l'annonce sont effectuées par authorizedAnnonce.
   const scope = await authorizedAnnonce(annonceId)
 
+  // Récupérer et valider les informations de l'annonce
+  // depuis le formulaire avec le schéma Zod annonceSchema.
   const data = annonceSchema.parse({
     titre: formData.get("titre"),
     description: formData.get("description"),
@@ -230,60 +262,91 @@ export async function updateAnnonce(annonceId: string, formData: FormData) {
     dateDisponibilite: formData.get("dateDisponibilite"),
   })
 
+  // Récupérer et valider les ID des photos à supprimer avec Zod
+  // (30 identifiants maximum).
   const ids = z.array(idSchema).max(30).parse(formData.getAll("deletePhotos"))
+
+  // Éliminer les identifiants en double.
   const uniqueIds = [...new Set(ids)]
+
+  // Récupérer uniquement les photos appartenant à l'annonce concernée.
   const photos = uniqueIds.length
     ? await prisma.photo.findMany({
-        where: { id: { in: uniqueIds }, annonceId: scope.id },
-        select: { id: true, url: true },
-      })
+      where: { id: { in: uniqueIds }, annonceId: scope.id },
+      select: { id: true, url: true },
+    })
     : []
-  if (photos.length !== uniqueIds.length) throw new Error("Photo non autorisée ou introuvable.")
 
+  // Refuser la suppression si une photo est introuvable
+  // ou n'appartient pas à l'annonce.
+  if (photos.length !== uniqueIds.length) {
+    throw new Error("Photo non autorisée ou introuvable.")
+  }
+
+  // Récupérer et valider les nouvelles photos du formulaire (nombre, taille et format),
+  // puis préparer leur contenu binaire et une URL unique pour leur stockage.
   const newPhotos = await validateNewPhotos(formData)
-  const createdPaths: string[] = []
-  let staged: StagedFile[] = []
+
+  const uploadedUrls: string[] = []
 
   try {
-    await mkdir(uploadDir, { recursive: true })
+    // 1. Envoyer les nouvelles photos dans Supabase.
     for (const photo of newPhotos) {
-      const filePath = path.join(uploadDir, path.basename(photo.url))
-      await writeFile(filePath, photo.buffer, { flag: "wx" })
-      createdPaths.push(filePath)
+      const url = await uploadAnnoncePhoto(photo)
+      uploadedUrls.push(url)
     }
 
-    staged = await stageRemovable(photos.map((photo) => photo.url), scope.id)
-
-    // BDD atomique : aucune modification partielle de l'annonce et de ses photos.
+    // 2. Modifier l'annonce et ses photos atomiquement.
     await prisma.$transaction(async (tx) => {
       await tx.annonce.update({
         where: ownedWhere(scope),
         data: {
           ...data,
-          // Un changement vente/location réinitialise un état devenu incompatible.
-          ...(data.type !== scope.type ? { etat: "DISPONIBLE" as const } : {}),
+          ...(data.type !== scope.type
+            ? { etat: "DISPONIBLE" as const }
+            : {}),
         },
       })
-      if (uniqueIds.length) {
-        await tx.photo.deleteMany({ where: { annonceId: scope.id, id: { in: uniqueIds } } })
+
+      if (uniqueIds.length > 0) {
+        await tx.photo.deleteMany({
+          where: {
+            annonceId: scope.id,
+            id: { in: uniqueIds },
+          },
+        })
       }
-      if (newPhotos.length) {
+
+      if (uploadedUrls.length > 0) {
         await tx.photo.createMany({
-          data: newPhotos.map((photo) => ({ annonceId: scope.id, url: photo.url })),
+          data: uploadedUrls.map((url) => ({
+            annonceId: scope.id,
+            url,
+          })),
         })
       }
     })
   } catch (error) {
-    await restoreStaged(staged)
-    for (const filePath of createdPaths) {
-      try { await unlink(filePath) } catch (cleanupError) {
-        console.error("Fichier temporaire non supprimé :", filePath, cleanupError)
+    console.error("Erreur de modification d'annonce :", error)
+
+    // La transaction a échoué : nettoyer les nouveaux uploads.
+    const cleanup = await Promise.allSettled(
+      uploadedUrls.map((url) => deleteAnnoncePhoto(url)),
+    )
+
+    cleanup.forEach((result) => {
+      if (result.status === "rejected") {
+        console.error("Échec du nettoyage Supabase :", result.reason)
       }
-    }
+    })
+
     throw error
   }
 
-  await permanentlyRemove(staged)
+  // 3. Nettoyage après confirmation en base.
+  await cleanupUnusedPhotos(photos.map((photo) => photo.url))
+
   refresh(annonceId)
+
   redirect(`/agent/annonces/${annonceId}?toast=updated`)
 }
